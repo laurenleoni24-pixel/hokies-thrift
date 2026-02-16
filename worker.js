@@ -9,7 +9,9 @@
  * 2. Add environment variables in Cloudflare Dashboard:
  *    - EBAY_APP_ID: Your eBay Developer App ID (Client ID)
  *    - EBAY_CLIENT_SECRET: Your eBay Developer Cert ID (Client Secret)
- * 3. Copy your Worker URL and add it to the admin settings panel
+ *    - ADMIN_KEY: A secret key for admin write operations
+ * 3. Bind a KV namespace as "STORE" in Worker settings
+ * 4. Copy your Worker URL and add it to the admin settings panel and script.js/admin.js
  */
 
 // Token cache - stores OAuth token in memory
@@ -30,7 +32,7 @@ async function handleRequest(request) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
   };
 
   // Handle preflight OPTIONS request
@@ -91,6 +93,21 @@ async function handleRequest(request) {
     // Route: GET /health (health check endpoint)
     if (url.pathname === '/health') {
       return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() }, 200, corsHeaders);
+    }
+
+    // Route: GET/POST /settings — KV-backed eBay settings
+    if (url.pathname === '/settings') {
+      return handleKvEndpoint(request, 'ebaySettings', corsHeaders);
+    }
+
+    // Route: GET/POST /approved-items — KV-backed approved items list
+    if (url.pathname === '/approved-items') {
+      return handleKvEndpoint(request, 'ebayApprovedItems', corsHeaders);
+    }
+
+    // Route: GET/POST /syndicated-listings — KV-backed syndicated listings
+    if (url.pathname === '/syndicated-listings') {
+      return handleKvEndpoint(request, 'syndicatedListings', corsHeaders);
     }
 
     // Unknown route
@@ -195,6 +212,30 @@ async function fetchEbayListings(token, seller, limit) {
       shippingOptions: item.shippingOptions || []
     })) : []
   };
+}
+
+/**
+ * Handle GET/POST for a KV-backed endpoint
+ */
+async function handleKvEndpoint(request, kvKey, corsHeaders) {
+  if (request.method === 'GET') {
+    const value = await STORE.get(kvKey);
+    return jsonResponse(value ? JSON.parse(value) : null, 200, corsHeaders);
+  }
+
+  if (request.method === 'POST') {
+    // Verify admin key
+    const adminKey = request.headers.get('X-Admin-Key');
+    if (!adminKey || adminKey !== ADMIN_KEY) {
+      return jsonResponse({ error: 'Unauthorized' }, 401, corsHeaders);
+    }
+
+    const body = await request.json();
+    await STORE.put(kvKey, JSON.stringify(body));
+    return jsonResponse({ success: true }, 200, corsHeaders);
+  }
+
+  return jsonResponse({ error: 'Method not allowed' }, 405, corsHeaders);
 }
 
 /**

@@ -1,3 +1,6 @@
+// Worker URL — update this after deploying your Cloudflare Worker
+const WORKER_URL = 'https://hokies-thrift-ebay.laurenleoni24.workers.dev';
+
 // Navigation and page switching
 document.addEventListener('DOMContentLoaded', function() {
     // Clean up storage on load to prevent quota issues
@@ -601,7 +604,21 @@ let ebayListingsCache = {
  */
 async function loadEbayListings() {
     const grid = document.getElementById('ebayListingsGrid');
-    const settings = JSON.parse(localStorage.getItem('ebaySettings') || '{}');
+    const workerBase = WORKER_URL.replace(/\/$/, '');
+
+    // Fetch settings from Worker KV (fallback to localStorage)
+    let settings;
+    try {
+        const settingsResp = await fetch(`${workerBase}/settings`);
+        if (settingsResp.ok) {
+            settings = await settingsResp.json();
+        }
+    } catch (e) {
+        console.warn('Could not fetch settings from Worker, falling back to localStorage:', e);
+    }
+    if (!settings) {
+        settings = JSON.parse(localStorage.getItem('ebaySettings') || '{}');
+    }
 
     // Check if eBay is configured
     if (!settings.proxyUrl || !settings.ebaySellerUsername) {
@@ -666,8 +683,9 @@ async function loadEbayListings() {
 /**
  * Render eBay listings to the grid
  */
-function renderEbayListings(data) {
+async function renderEbayListings(data) {
     const grid = document.getElementById('ebayListingsGrid');
+    const workerBase = WORKER_URL.replace(/\/$/, '');
 
     if (!data.items || data.items.length === 0) {
         grid.innerHTML = `
@@ -679,10 +697,21 @@ function renderEbayListings(data) {
         return;
     }
 
-    const settings = JSON.parse(localStorage.getItem('ebaySettings') || '{}');
+    // Fetch settings and approved items from Worker KV (fallback to localStorage)
+    let settings, approvedItems;
+    try {
+        const [settingsResp, approvedResp] = await Promise.all([
+            fetch(`${workerBase}/settings`),
+            fetch(`${workerBase}/approved-items`)
+        ]);
+        if (settingsResp.ok) settings = await settingsResp.json();
+        if (approvedResp.ok) approvedItems = await approvedResp.json();
+    } catch (e) {
+        console.warn('Could not fetch from Worker KV, falling back to localStorage:', e);
+    }
+    if (!settings) settings = JSON.parse(localStorage.getItem('ebaySettings') || '{}');
+    if (!approvedItems) approvedItems = JSON.parse(localStorage.getItem('ebayApprovedItems') || '[]');
 
-    // Filter by approved items only (if curation is enabled)
-    const approvedItems = JSON.parse(localStorage.getItem('ebayApprovedItems') || '[]');
     let itemsToDisplay = data.items;
 
     // If there are approved items, only show those
@@ -1969,10 +1998,25 @@ function completeOrder() {
     loadShopInventory(); // Refresh shop
 }
 
-// Load syndicated listings from admin backend
-function loadSyndicatedListingsToFrontend() {
-    const listings = JSON.parse(localStorage.getItem('syndicatedListings') || '[]');
-    const activeListings = listings.filter(l => l.active);
+// Load syndicated listings from Worker KV (fallback to localStorage)
+async function loadSyndicatedListingsToFrontend() {
+    const workerBase = WORKER_URL.replace(/\/$/, '');
+    let listings;
+
+    try {
+        const resp = await fetch(`${workerBase}/syndicated-listings`);
+        if (resp.ok) {
+            listings = await resp.json();
+        }
+    } catch (e) {
+        console.warn('Could not fetch syndicated listings from Worker, falling back to localStorage:', e);
+    }
+
+    if (!listings) {
+        listings = JSON.parse(localStorage.getItem('syndicatedListings') || '[]');
+    }
+
+    const activeListings = (listings || []).filter(l => l.active);
 
     if (activeListings.length === 0) {
         return [];

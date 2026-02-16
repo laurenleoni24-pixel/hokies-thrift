@@ -494,6 +494,12 @@
                             <small style="color: #666;">Your deployed Cloudflare Worker URL</small>
                         </div>
 
+                        <div class="form-group">
+                            <label>Admin Key</label>
+                            <input type="password" id="adminKey" placeholder="Your secret admin key">
+                            <small style="color: #666;">Secret key for writing data to Cloudflare KV (set as ADMIN_KEY env var in Worker)</small>
+                        </div>
+
                         <div style="display: flex; gap: 1rem;">
                             <button class="btn-primary" onclick="saveEbaySettings()">Save eBay Settings</button>
                             <button class="btn-secondary" onclick="testEbayConnection()">Test Connection</button>

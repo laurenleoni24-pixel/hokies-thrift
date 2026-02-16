@@ -1,5 +1,35 @@
 // Admin Panel JavaScript
 
+// Worker URL — update this after deploying your Cloudflare Worker
+const WORKER_URL = 'https://hokies-thrift-ebay.laurenleoni24.workers.dev';
+
+/**
+ * POST data to a Worker KV endpoint (admin-authenticated)
+ */
+async function postToWorker(path, data) {
+    const adminKey = localStorage.getItem('adminKey') || '';
+    if (!adminKey) {
+        console.warn('No admin key set — data will only be saved locally');
+        return;
+    }
+    try {
+        const resp = await fetch(`${WORKER_URL.replace(/\/$/, '')}${path}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Key': adminKey
+            },
+            body: JSON.stringify(data)
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            console.error(`Failed to sync ${path} to Worker:`, err);
+        }
+    } catch (e) {
+        console.error(`Failed to sync ${path} to Worker:`, e);
+    }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     checkAuth();
@@ -1593,6 +1623,9 @@ document.getElementById('syndicatedForm').addEventListener('submit', function(e)
     listings.push(listing);
     localStorage.setItem('syndicatedListings', JSON.stringify(listings));
 
+    // Sync to Worker KV
+    postToWorker('/syndicated-listings', listings);
+
     closeSyndicatedModal();
     loadSyndicatedListings();
     alert('Syndicated listing added!');
@@ -1636,6 +1669,7 @@ function toggleSyndicatedListing(listingId, active) {
     if (listing) {
         listing.active = active;
         localStorage.setItem('syndicatedListings', JSON.stringify(listings));
+        postToWorker('/syndicated-listings', listings);
         loadSyndicatedListings();
     }
 }
@@ -1645,6 +1679,7 @@ function deleteSyndicatedListing(listingId) {
         let listings = JSON.parse(localStorage.getItem('syndicatedListings') || '[]');
         listings = listings.filter(l => l.id !== listingId);
         localStorage.setItem('syndicatedListings', JSON.stringify(listings));
+        postToWorker('/syndicated-listings', listings);
         loadSyndicatedListings();
     }
 }
@@ -2025,6 +2060,7 @@ function loadEbaySettings() {
         document.getElementById('ebaySellerUsername').value = settings.ebaySellerUsername || '';
         document.getElementById('epnCampaignId').value = settings.epnCampaignId || '';
         document.getElementById('proxyUrl').value = settings.proxyUrl || '';
+        document.getElementById('adminKey').value = localStorage.getItem('adminKey') || '';
     }
 }
 
@@ -2039,6 +2075,12 @@ function saveEbaySettings() {
         epnCampaignId: document.getElementById('epnCampaignId').value.trim(),
         proxyUrl: document.getElementById('proxyUrl').value.trim()
     };
+
+    // Save admin key to localStorage only (never synced to KV)
+    const adminKey = document.getElementById('adminKey').value.trim();
+    if (adminKey) {
+        localStorage.setItem('adminKey', adminKey);
+    }
 
     // Validate required fields
     if (!settings.ebayAppId || !settings.ebayClientSecret || !settings.ebaySellerUsername ||
@@ -2055,8 +2097,11 @@ function saveEbaySettings() {
         return;
     }
 
-    // Save to localStorage
+    // Save to localStorage (local cache)
     localStorage.setItem('ebaySettings', JSON.stringify(settings));
+
+    // Sync to Worker KV
+    postToWorker('/settings', settings);
 
     // Show success message
     const resultDiv = document.getElementById('ebayTestResult');
@@ -2255,8 +2300,11 @@ function toggleEbayListingApproval(itemId) {
         approvedItems.push(itemId);
     }
 
-    // Save to localStorage
+    // Save to localStorage (local cache)
     localStorage.setItem('ebayApprovedItems', JSON.stringify(approvedItems));
+
+    // Sync to Worker KV
+    postToWorker('/approved-items', approvedItems);
 
     // Reload the curation list to reflect changes
     loadEbayListingsForCuration();
