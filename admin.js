@@ -2048,10 +2048,27 @@ function declineSubmission(submissionId) {
 // ==============================
 
 /**
- * Load eBay settings from localStorage and populate form fields
+ * Load eBay settings from KV (falling back to localStorage) and populate form fields
  */
-function loadEbaySettings() {
-    const settings = JSON.parse(localStorage.getItem('ebaySettings') || '{}');
+async function loadEbaySettings() {
+    let settings = JSON.parse(localStorage.getItem('ebaySettings') || '{}');
+
+    // Try to load from Worker KV if local settings are empty
+    if (!settings.ebayAppId) {
+        try {
+            const resp = await fetch(`${WORKER_URL.replace(/\/$/, '')}/settings`);
+            if (resp.ok) {
+                const kvSettings = await resp.json();
+                if (kvSettings && kvSettings.ebayAppId) {
+                    settings = kvSettings;
+                    // Cache back to localStorage
+                    localStorage.setItem('ebaySettings', JSON.stringify(settings));
+                }
+            }
+        } catch (e) {
+            console.warn('Could not fetch settings from Worker KV:', e);
+        }
+    }
 
     // Populate form fields if they exist (only after login)
     if (document.getElementById('ebayAppId')) {
