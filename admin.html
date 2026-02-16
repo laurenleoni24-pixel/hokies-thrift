@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hokies Thrift Admin</title>
+    <link rel="stylesheet" href="admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <img src="Brand_assets/original-A50FCB42-A201-4898-A8AE-AAE04F13EF76.jpeg" alt="Hokies Thrift" class="login-logo">
+            <h1>Admin Login</h1>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn-primary">Login</button>
+                <p class="login-error" id="loginError"></p>
+            </form>
+            <p class="login-hint">Default: admin / hokies2021</p>
+        </div>
+    </div>
+
+    <!-- ADMIN DASHBOARD -->
+    <div id="adminDashboard" style="display: none;">
+        <!-- Top Navigation -->
+        <nav class="admin-nav">
+            <div class="admin-nav-left">
+                <img src="Brand_assets/original-A50FCB42-A201-4898-A8AE-AAE04F13EF76.jpeg" alt="Logo" class="nav-logo">
+                <span class="nav-title">HOKIES THRIFT ADMIN</span>
+            </div>
+            <div class="admin-nav-right">
+                <span class="user-info">Admin User</span>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </nav>
+
+        <!-- Sidebar and Content -->
+        <div class="admin-layout">
+            <!-- Sidebar -->
+            <aside class="admin-sidebar">
+                <ul class="sidebar-menu">
+                    <li><a href="#" class="menu-item active" data-section="overview">📊 Overview</a></li>
+                    <li><a href="#" class="menu-item" data-section="drops">🎯 Manage Drops</a></li>
+                    <li><a href="#" class="menu-item" data-section="orders">📦 Orders</a></li>
+                    <li><a href="#" class="menu-item" data-section="submissions">📥 Seller Submissions</a></li>
+                    <li><a href="#" class="menu-item" data-section="profits">💰 Profits</a></li>
+                    <li><a href="#" class="menu-item" data-section="syndicated">🔗 Syndicated Listings</a></li>
+                    <li><a href="#" class="menu-item" data-section="ebay-curation">🛍️ eBay Curation</a></li>
+                    <li><a href="#" class="menu-item" data-section="events">🏈 Hokies Events</a></li>
+                    <li><a href="#" class="menu-item" data-section="settings">⚙️ Settings</a></li>
+                </ul>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="admin-content">
+                <!-- OVERVIEW SECTION -->
+                <section id="overview" class="admin-section active">
+                    <h1>Dashboard Overview</h1>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">📦</div>
+                            <div class="stat-info">
+                                <h3>Pending Orders</h3>
+                                <p class="stat-number" id="statPendingOrders">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <h3>Completed Orders</h3>
+                                <p class="stat-number" id="statCompletedOrders">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">💰</div>
+                            <div class="stat-info">
+                                <h3>Total Revenue</h3>
+                                <p class="stat-number" id="statRevenue">$0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📈</div>
+                            <div class="stat-info">
+                                <h3>Active Listings</h3>
+                                <p class="stat-number" id="statActiveListings">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📥</div>
+                            <div class="stat-info">
+                                <h3>New Submissions</h3>
+                                <p class="stat-number" id="statNewSubmissions">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions">
+                        <h2>Quick Actions</h2>
+                        <div class="action-buttons">
+                            <button class="btn-action" onclick="switchSection('drops')">Create New Drop</button>
+                            <button class="btn-action" onclick="switchSection('orders')">View Orders</button>
+                            <button class="btn-action" onclick="switchSection('submissions')">View Submissions</button>
+                            <button class="btn-action" onclick="switchSection('profits')">View Profits</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- DROPS MANAGEMENT SECTION -->
+                <section id="drops" class="admin-section">
+                    <h1>Manage Drops</h1>
+
+                    <div class="section-header">
+                        <button class="btn-primary" onclick="openDropModal()">+ Create Item</button>
+                        <button class="btn-success" onclick="openDropEditor()">+ Create Drop</button>
+                    </div>
+
+                    <div class="drops-management">
+                        <div class="drop-category">
+                            <h2>📝 Draft Drops</h2>
+                            <p class="category-description">Drops being created (not scheduled yet)</p>
+                            <div id="draftDropsContainer" class="drops-container">
+                                <!-- Draft drops will be loaded here -->
+                            </div>
+                        </div>
+
+                        <div class="drop-category">
+                            <h2>⏰ Scheduled Drops</h2>
+                            <p class="category-description">Drops with active countdowns</p>
+                            <div id="scheduledDropsContainer" class="drops-container">
+                                <!-- Scheduled drops will be loaded here -->
+                            </div>
+                        </div>
+
+                        <div class="drop-category">
+                            <h2>🔴 Live Drops</h2>
+                            <p class="category-description">Currently active on the website</p>
+                            <div id="liveDropsContainer" class="drops-container">
+                                <!-- Live drops will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2>Unassigned Inventory</h2>
+                    <p class="help-text">Items not yet assigned to any drop</p>
+                    <div class="inventory-grid" id="inventoryGrid">
+                        <!-- Unassigned items will be loaded here -->
+                    </div>
+                </section>
+
+                <!-- ORDERS SECTION -->
+                <section id="orders" class="admin-section">
+                    <h1>Order Management</h1>
+
+                    <div class="orders-filters">
+                        <select id="orderStatusFilter" onchange="filterOrders()">
+                            <option value="all">All Orders</option>
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="delivered">Delivered</option>
+                        </select>
+                    </div>
+
+                    <div class="orders-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date</th>
+                                    <th>Customer</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTableBody">
+                                <!-- Orders will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- PROFITS SECTION -->
+                <section id="profits" class="admin-section">
+                    <h1>Profit Tracking</h1>
+
+                    <div class="profit-summary">
+                        <div class="profit-card">
+                            <h3>Total Revenue</h3>
+                            <p class="profit-amount" id="totalRevenue">$0.00</p>
+                        </div>
+                        <div class="profit-card">
+                            <h3>Total Costs</h3>
+                            <p class="profit-amount" id="totalCosts">$0.00</p>
+                        </div>
+                        <div class="profit-card highlight">
+                            <h3>Net Profit</h3>
+                            <p class="profit-amount" id="netProfit">$0.00</p>
+                        </div>
+                    </div>
+
+                    <h2>Sales History</h2>
+                    <div class="sales-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Item</th>
+                                    <th>Sale Price</th>
+                                    <th>Cost</th>
+                                    <th>Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salesTableBody">
+                                <!-- Sales will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- SYNDICATED LISTINGS SECTION -->
+                <section id="syndicated" class="admin-section">
+                    <h1>Syndicated Listings Manager</h1>
+                    <p class="section-desc">Manage which items from other platforms appear in the Browse section</p>
+
+                    <div class="section-header">
+                        <button class="btn-primary" onclick="openSyndicatedModal()">+ Add Syndicated Listing</button>
+                    </div>
+
+                    <div class="syndicated-grid" id="syndicatedGrid">
+                        <!-- Syndicated items will be loaded here -->
+                    </div>
+                </section>
+
+                <!-- SELLER SUBMISSIONS SECTION -->
+                <section id="submissions" class="admin-section">
+                    <h1>Seller Submissions</h1>
+                    <p class="section-desc">Review items submitted by sellers through the "Sell Your Gear" form</p>
+
+                    <div class="submissions-filters">
+                        <select id="submissionStatusFilter" onchange="filterSubmissions()">
+                            <option value="all">All Submissions</option>
+                            <option value="pending_admin">Pending Admin Review</option>
+                            <option value="pending_seller">Pending Seller Approval</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="new">New (Legacy)</option>
+                            <option value="reviewed">Reviewed (Legacy)</option>
+                            <option value="contacted">Contacted (Legacy)</option>
+                            <option value="accepted">Accepted (Legacy)</option>
+                            <option value="declined">Declined (Legacy)</option>
+                        </select>
+                    </div>
+
+                    <div class="submissions-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Seller</th>
+                                    <th>Item Type</th>
+                                    <th>Condition</th>
+                                    <th>Era</th>
+                                    <th>Estimate</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="submissionsTableBody">
+                                <!-- Submissions will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- EBAY CURATION SECTION -->
+                <section id="ebay-curation" class="admin-section">
+                    <h1>eBay Curation</h1>
+                    <p class="section-desc">Select which eBay listings to display on your Browse page</p>
+
+                    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                        <button class="btn-primary" onclick="loadEbayListingsForCuration()">🔄 Refresh eBay Listings</button>
+                        <div>
+                            <span id="ebay-curation-stats" style="color: #666;"></span>
+                        </div>
+                    </div>
+
+                    <div id="ebay-curation-container">
+                        <p style="color: #666; text-align: center; padding: 2rem;">Click "Refresh eBay Listings" to load your eBay items</p>
+                    </div>
+                </section>
+
+                <!-- HOKIES EVENTS SECTION -->
+                <section id="events" class="admin-section">
+                    <h1>Hokies Events</h1>
+
+                    <div class="section-header">
+                        <button class="btn-primary" onclick="openEventModal()">+ Add Event</button>
+                    </div>
+
+                    <div class="events-list" id="adminEventsList">
+                        <!-- Events populated by JavaScript -->
+                    </div>
+                </section>
+
+                <!-- SETTINGS SECTION -->
+                <section id="settings" class="admin-section">
+                    <h1>Settings</h1>
+
+                    <div class="settings-form">
+                        <h2>Store Settings</h2>
+                        <div class="form-group">
+                            <label>Store Name</label>
+                            <input type="text" id="storeName" value="Hokies Thrift">
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Email</label>
+                            <input type="email" id="contactEmail" value="contact@hokiesthrift.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Instagram Handle</label>
+                            <input type="text" id="instagramHandle" value="@hokiesthrift">
+                        </div>
+                        <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+                    </div>
+
+                    <div class="settings-form" style="margin-top: 2rem; border-top: 2px solid #e74c3c; padding-top: 2rem;">
+                        <h2 style="color: #e74c3c;">⚠️ Danger Zone</h2>
+                        <p style="color: #666; margin-bottom: 1.5rem;">These actions cannot be undone. Use with caution.</p>
+
+                        <div class="form-group">
+                            <label style="color: #e74c3c;">Clear All Inventory & Drops</label>
+                            <p style="color: #666; font-size: 0.9rem; margin: 0.5rem 0 1rem 0;">
+                                This will remove ALL inventory items, drops, and orders. Use this to remove any sample/test data.
+                                <br><strong>This does NOT affect your eBay integration settings.</strong>
+                            </p>
+                            <button class="btn-danger" onclick="clearAllData()">🗑️ Clear All Data</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-form" style="margin-top: 2rem;">
+                        <h2>📦 Shippo Shipping Integration</h2>
+                        <p style="color: #666; margin-bottom: 1.5rem;">Configure Shippo to automatically create shipping labels when customers place orders. <a href="https://goshippo.com/" target="_blank" style="color: var(--orange);">Get API key</a></p>
+
+                        <div class="form-group">
+                            <label>Shippo API Key</label>
+                            <input type="password" id="shippoApiKey" placeholder="shippo_test_... or shippo_live_...">
+                            <small style="color: #666;">Test keys create labels without charging. Live keys create real labels.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Ship From Address - Street</label>
+                            <input type="text" id="shipFromStreet" placeholder="5610 De Soto St">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label>City</label>
+                                <input type="text" id="shipFromCity" placeholder="Burke">
+                            </div>
+                            <div class="form-group">
+                                <label>State</label>
+                                <input type="text" id="shipFromState" placeholder="VA" maxlength="2">
+                            </div>
+                            <div class="form-group">
+                                <label>ZIP Code</label>
+                                <input type="text" id="shipFromZip" placeholder="22015">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Email Address *</label>
+                            <input type="email" id="shipFromEmail" placeholder="shipping@hokiesthrift.com">
+                            <small style="color: #666;">Required by USPS for shipping labels</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Phone Number *</label>
+                            <input type="tel" id="shipFromPhone" placeholder="(555) 123-4567">
+                            <small style="color: #666;">Required by USPS for shipping labels</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Default Shipping Service</label>
+                            <select id="shippoDefaultService">
+                                <option value="usps_first">USPS First Class (Cheapest, up to 1 lb)</option>
+                                <option value="usps_priority">USPS Priority Mail (2-3 days)</option>
+                                <option value="usps_ground_advantage">USPS Ground Advantage (2-5 days)</option>
+                            </select>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label>Length (in)</label>
+                                <input type="number" id="shippoDefaultLength" placeholder="12" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label>Width (in)</label>
+                                <input type="number" id="shippoDefaultWidth" placeholder="10" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label>Height (in)</label>
+                                <input type="number" id="shippoDefaultHeight" placeholder="3" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label>Weight (lb)</label>
+                                <input type="number" id="shippoDefaultWeight" placeholder="1" step="0.1">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn-primary" onclick="saveShippoSettings()">Save Shippo Settings</button>
+                            <button class="btn-secondary" onclick="testShippoConnection()">Test Connection</button>
+                        </div>
+
+                        <div id="shippoTestResult" style="margin-top: 1rem;"></div>
+                    </div>
+
+                    <div class="settings-form" style="margin-top: 2rem;">
+                        <h2>🗺️ Google Places API (Address Autocomplete)</h2>
+                        <p style="color: #666; margin-bottom: 1.5rem;">Enable address autocomplete at checkout to reduce shipping errors. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color: var(--orange);">Get API key</a></p>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="googlePlacesEnabled" onchange="toggleGooglePlaces()" style="width: auto; margin-right: 0.5rem;">
+                                Enable Address Autocomplete
+                            </label>
+                            <small style="color: #666;">Turn this off if the address field is greying out or not working</small>
+                        </div>
+
+                        <div id="googlePlacesKeySection">
+                            <div class="form-group">
+                                <label>Google Places API Key</label>
+                                <input type="password" id="googlePlacesApiKey" placeholder="AIza...">
+                                <small style="color: #666;">Enable "Places API" and "Maps JavaScript API" in Google Cloud Console</small>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem;">
+                                <button class="btn-primary" onclick="saveGooglePlacesSettings()">Save API Key</button>
+                                <button class="btn-secondary" onclick="applyGooglePlacesKey()">Apply Now</button>
+                            </div>
+                        </div>
+
+                        <div id="googlePlacesStatus" style="margin-top: 1rem;"></div>
+
+                        <div style="background: #e8f4f8; padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid var(--orange);">
+                            <p style="margin: 0; color: #666; font-size: 0.9rem;"><strong>How it works:</strong> Save your API key, reload the page, and address autocomplete will automatically activate on the checkout page. Customers will see address suggestions as they type.</p>
+                        </div>
+                    </div>
+
+                    <div class="settings-form" style="margin-top: 2rem;">
+                        <h2>eBay Integration Settings</h2>
+                        <p style="color: #666; margin-bottom: 1.5rem;">Configure eBay API credentials to display your store listings on the Browse page. <a href="https://developer.ebay.com/" target="_blank" style="color: var(--orange);">Get API credentials</a></p>
+
+                        <div class="form-group">
+                            <label>eBay App ID (Client ID)</label>
+                            <input type="text" id="ebayAppId" placeholder="YourAppN-HokiesT-PRD-...">
+                            <small style="color: #666;">From eBay Developer Dashboard → Application Keys</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>eBay Client Secret (Cert ID)</label>
+                            <input type="password" id="ebayClientSecret" placeholder="PRD-...">
+                            <small style="color: #666;">Keep this secret - never share publicly</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>eBay Seller Username</label>
+                            <input type="text" id="ebaySellerUsername" placeholder="hokiesthrift_store">
+                            <small style="color: #666;">Your eBay seller username (shown on your eBay listings)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>EPN Campaign ID</label>
+                            <input type="text" id="epnCampaignId" placeholder="5338934789">
+                            <small style="color: #666;">From eBay Partner Network for affiliate tracking</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Cloudflare Worker Proxy URL</label>
+                            <input type="text" id="proxyUrl" placeholder="https://ebay-proxy.your-subdomain.workers.dev">
+                            <small style="color: #666;">Your deployed Cloudflare Worker URL</small>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn-primary" onclick="saveEbaySettings()">Save eBay Settings</button>
+                            <button class="btn-secondary" onclick="testEbayConnection()">Test Connection</button>
+                        </div>
+
+                        <div id="ebayTestResult" style="margin-top: 1rem;"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- DROP MODAL -->
+    <div id="dropModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDropModal()">&times;</span>
+            <h2>Create New Drop Item</h2>
+            <form id="dropForm">
+                <div class="form-group">
+                    <label>Item Name *</label>
+                    <input type="text" id="itemName" required>
+                </div>
+                <div class="form-group">
+                    <label>Description *</label>
+                    <textarea id="itemDescription" rows="4" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Price *</label>
+                        <input type="number" id="itemPrice" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cost (what you paid)</label>
+                        <input type="number" id="itemCost" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="itemCategory">
+                        <option value="hoodie">Hoodie/Sweatshirt</option>
+                        <option value="jacket">Jacket</option>
+                        <option value="tshirt">T-Shirt</option>
+                        <option value="jersey">Jersey</option>
+                        <option value="hat">Hat/Cap</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Size</label>
+                    <input type="text" id="itemSize" placeholder="e.g., M, L, XL">
+                </div>
+                <div class="form-group">
+                    <label>Condition</label>
+                    <select id="itemCondition">
+                        <option value="excellent">Excellent</option>
+                        <option value="good">Good</option>
+                        <option value="fair">Fair</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Upload Photos (up to 5)</label>
+                    <input type="file" id="itemImages" accept="image/*" multiple>
+                    <small style="display: block; margin-top: 0.5rem; color: #666;">Select multiple images to upload</small>
+                    <div id="imagePreview" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">Add Item</button>
+                    <button type="button" class="btn-secondary" onclick="closeDropModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT INVENTORY ITEM MODAL -->
+    <div id="editInventoryModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditInventoryModal()">&times;</span>
+            <h2>Edit Inventory Item</h2>
+            <form id="editInventoryForm">
+                <input type="hidden" id="editItemId">
+                <div class="form-group">
+                    <label>Item Name *</label>
+                    <input type="text" id="editItemName" required>
+                </div>
+                <div class="form-group">
+                    <label>Description *</label>
+                    <textarea id="editItemDescription" rows="4" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Price *</label>
+                        <input type="number" id="editItemPrice" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cost (what you paid)</label>
+                        <input type="number" id="editItemCost" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="editItemCategory">
+                        <option value="hoodie">Hoodie/Sweatshirt</option>
+                        <option value="jacket">Jacket</option>
+                        <option value="tshirt">T-Shirt</option>
+                        <option value="jersey">Jersey</option>
+                        <option value="hat">Hat/Cap</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Size</label>
+                    <input type="text" id="editItemSize" placeholder="e.g., M, L, XL">
+                </div>
+                <div class="form-group">
+                    <label>Condition</label>
+                    <select id="editItemCondition">
+                        <option value="excellent">Excellent</option>
+                        <option value="good">Good</option>
+                        <option value="fair">Fair</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Photos</label>
+                    <div id="editImagePreview" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;"></div>
+                    <input type="file" id="editItemImages" accept="image/*" multiple style="margin-top: 1rem;">
+                    <small style="display: block; margin-top: 0.5rem; color: #666;">Upload new photos or drag existing photos to reorder</small>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                    <button type="button" class="btn-secondary" onclick="closeEditInventoryModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SYNDICATED LISTING MODAL -->
+    <div id="syndicatedModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeSyndicatedModal()">&times;</span>
+            <h2>Add Syndicated Listing</h2>
+            <form id="syndicatedForm">
+                <div class="form-group">
+                    <label>Item Title *</label>
+                    <input type="text" id="syndicatedTitle" required>
+                </div>
+                <div class="form-group">
+                    <label>Platform *</label>
+                    <select id="syndicatedPlatform" required>
+                        <option value="ebay">eBay</option>
+                        <option value="poshmark">Poshmark</option>
+                        <option value="mercari">Mercari</option>
+                        <option value="depop">Depop</option>
+                        <option value="grailed">Grailed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Price *</label>
+                    <input type="text" id="syndicatedPrice" required placeholder="e.g., $45.00">
+                </div>
+                <div class="form-group">
+                    <label>Affiliate Link *</label>
+                    <input type="url" id="syndicatedLink" required placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>Image URL</label>
+                    <input type="text" id="syndicatedImage" placeholder="URL to item image">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">Add Listing</button>
+                    <button type="button" class="btn-secondary" onclick="closeSyndicatedModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ORDER DETAIL MODAL -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeOrderModal()">&times;</span>
+            <h2>Order Details</h2>
+            <div id="orderDetailContent">
+                <!-- Order details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- SUBMISSION DETAIL MODAL -->
+    <div id="submissionModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeSubmissionModal()">&times;</span>
+            <h2>Submission Details</h2>
+            <div id="submissionDetailContent">
+                <!-- Submission details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- EVENT MODAL -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEventModal()">&times;</span>
+            <h2 id="eventModalTitle">Add Hokies Event</h2>
+            <form id="eventForm">
+                <input type="hidden" id="eventId">
+                <div class="form-group">
+                    <label>Event Name *</label>
+                    <input type="text" id="eventName" required placeholder="e.g., Hokies vs UVA Football">
+                </div>
+                <div class="form-group">
+                    <label>Event Date & Time *</label>
+                    <input type="datetime-local" id="eventDate" required>
+                </div>
+                <div class="form-group">
+                    <label>Location</label>
+                    <input type="text" id="eventLocation" placeholder="e.g., Lane Stadium">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="eventDescription" rows="3" placeholder="Brief event description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Event Link (optional)</label>
+                    <input type="url" id="eventLink" placeholder="https://hokiesports.com/...">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">Save Event</button>
+                    <button type="button" class="btn-secondary" onclick="closeEventModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DROP EDITOR MODAL -->
+    <div id="dropEditorModal" class="modal">
+        <div class="modal-content large">
+            <span class="close" onclick="closeDropEditor()">&times;</span>
+            <h2 id="dropEditorTitle">Create New Drop</h2>
+
+            <!-- Step 1: Basic Info -->
+            <div id="dropStep1" class="drop-step active">
+                <h3>Step 1: Basic Information</h3>
+                <div class="form-group">
+                    <label>Drop Name *</label>
+                    <input type="text" id="dropName" placeholder="e.g., Vintage VT Fall Collection" required>
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <textarea id="dropDescription" rows="3" placeholder="Briefly describe this drop"></textarea>
+                </div>
+                <button class="btn-primary" onclick="nextDropStep(2)">Next: Select Items →</button>
+            </div>
+
+            <!-- Step 2: Item Selection -->
+            <div id="dropStep2" class="drop-step">
+                <h3>Step 2: Select Items (1-10 required)</h3>
+                <p class="help-text">Only unassigned items are shown. Check 1-10 items to include in this drop.</p>
+
+                <div class="item-selection-grid" id="dropItemSelection">
+                    <!-- Checkboxes for available inventory items -->
+                </div>
+
+                <div class="selection-counter">
+                    <span id="selectedCount" style="font-size: 2rem; font-weight: bold; color: var(--maroon);">0</span>
+                    <span style="font-size: 1.5rem;"> / 10 items selected</span>
+                    <br>
+                    <span class="warning" id="selectionWarning" style="display: block; margin-top: 0.5rem;"></span>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="prevDropStep(1)">← Back</button>
+                    <button class="btn-primary" onclick="nextDropStep(3)" id="btnContinueItems">Next: Schedule →</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Scheduling -->
+            <div id="dropStep3" class="drop-step">
+                <h3>Step 3: Schedule Drop</h3>
+
+                <div class="schedule-options">
+                    <label>
+                        <input type="radio" name="scheduleType" value="draft" checked>
+                        <span class="radio-label">
+                            <strong>Save as Draft</strong>
+                            <small>Create the drop but don't schedule it yet. You can schedule it later.</small>
+                        </span>
+                    </label>
+                    <label>
+                        <input type="radio" name="scheduleType" value="schedule">
+                        <span class="radio-label">
+                            <strong>Schedule for Specific Date/Time</strong>
+                            <small>Set a countdown timer and auto-activate when it reaches zero.</small>
+                        </span>
+                    </label>
+                    <label>
+                        <input type="radio" name="scheduleType" value="now">
+                        <span class="radio-label">
+                            <strong>Drop Now (Go Live Immediately)</strong>
+                            <small>Items will appear on the shop page right away with no countdown.</small>
+                        </span>
+                    </label>
+                </div>
+
+                <div id="scheduleDatePicker" style="display: none; margin-top: 1rem;">
+                    <div class="form-group">
+                        <label>Drop Date & Time *</label>
+                        <input type="datetime-local" id="dropScheduleDate">
+                        <p class="help-text">The drop will automatically go live at this time</p>
+                    </div>
+                </div>
+
+                <div class="drop-preview">
+                    <h4>Drop Summary</h4>
+                    <p><strong>Name:</strong> <span id="previewName"></span></p>
+                    <p><strong>Items:</strong> <span id="previewItemCount"></span></p>
+                    <p><strong>Status:</strong> <span id="previewStatus"></span></p>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="prevDropStep(2)">← Back</button>
+                    <button class="btn-primary" onclick="saveDrop()" id="btnSaveDrop">Create Drop</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

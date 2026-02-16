@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seller Approval - Hokies Thrift</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .approval-container {
+            max-width: 600px;
+            margin: 4rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .approval-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .approval-header h1 {
+            color: var(--maroon);
+            margin-bottom: 0.5rem;
+        }
+
+        .submission-details {
+            background: var(--light-beige);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .detail-value {
+            color: var(--maroon);
+            font-weight: 600;
+        }
+
+        .price-highlight {
+            font-size: 2rem;
+            color: var(--orange);
+            font-weight: bold;
+            text-align: center;
+            margin: 1.5rem 0;
+        }
+
+        .approval-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .approval-actions button {
+            flex: 1;
+            padding: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .success-message {
+            background: var(--success);
+            color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .success-message h2 {
+            margin-bottom: 1rem;
+        }
+
+        .error-message {
+            background: var(--danger);
+            color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="approval-container">
+        <div class="approval-header">
+            <h1>🎓 Hokies Thrift</h1>
+            <p>Item Submission Approval</p>
+        </div>
+
+        <div id="manualIdEntry" style="display: none;">
+            <h2>Enter Submission ID</h2>
+            <p>Please enter the submission ID provided by Hokies Thrift:</p>
+            <div style="margin: 2rem 0;">
+                <input type="text" id="manualSubmissionId" placeholder="Enter submission ID" style="width: 100%; padding: 0.75rem; border: 2px solid var(--gray-200); border-radius: 5px; font-size: 1rem;">
+                <button class="btn-primary" onclick="loadManualSubmission()" style="width: 100%; margin-top: 1rem; padding: 0.75rem;">Continue</button>
+            </div>
+        </div>
+
+        <div id="loadingView" class="loading">
+            <p>Loading your submission...</p>
+        </div>
+
+        <div id="approvalView" style="display: none;">
+            <h2>Your Item Offer</h2>
+            <p>We've reviewed your submission and would like to make you an offer!</p>
+
+            <div class="submission-details">
+                <div class="detail-row">
+                    <span class="detail-label">Item Type:</span>
+                    <span class="detail-value" id="itemType"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Condition:</span>
+                    <span class="detail-value" id="itemCondition"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Era:</span>
+                    <span class="detail-value" id="itemEra"></span>
+                </div>
+            </div>
+
+            <h3 style="text-align: center; color: var(--maroon);">Our Offer</h3>
+            <div class="price-highlight" id="offerPrice">$0.00</div>
+
+            <p style="text-align: center; color: #666; margin-bottom: 2rem;">
+                By accepting this offer, you agree to sell your item to Hokies Thrift at the price shown above.
+                We will contact you within 24 hours to arrange pickup or shipping.
+            </p>
+
+            <div class="approval-actions">
+                <button class="btn-success" onclick="acceptOffer()">✓ Accept Offer</button>
+                <button class="btn-danger" onclick="declineOffer()">✗ Decline</button>
+            </div>
+        </div>
+
+        <div id="successView" style="display: none;">
+            <div class="success-message">
+                <h2>✅ Offer Accepted!</h2>
+                <p>Thank you for choosing Hokies Thrift!</p>
+                <p style="margin-top: 1rem;">We will contact you at <strong id="contactEmail"></strong> within 24 hours to arrange pickup or shipping details.</p>
+                <p style="margin-top: 1rem; font-size: 0.9rem;">Please keep your item in the same condition until we collect it.</p>
+            </div>
+        </div>
+
+        <div id="declinedView" style="display: none;">
+            <div class="error-message">
+                <h2>Offer Declined</h2>
+                <p>We understand. Thank you for your interest in Hokies Thrift.</p>
+                <p style="margin-top: 1rem;">Feel free to submit other items in the future!</p>
+            </div>
+        </div>
+
+        <div id="errorView" style="display: none;">
+            <div class="error-message">
+                <h2>Error</h2>
+                <p id="errorMessage">Something went wrong. Please contact us directly.</p>
+                <button class="btn-secondary" onclick="showManualEntry()" style="margin-top: 1rem; background: white; color: var(--maroon);">Try Manual ID Entry</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSubmission = null;
+
+        // Get submission ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const submissionId = urlParams.get('id');
+
+        if (!submissionId) {
+            // Show manual ID entry form instead of error
+            document.getElementById('loadingView').style.display = 'none';
+            document.getElementById('manualIdEntry').style.display = 'block';
+        } else {
+            loadSubmission(submissionId);
+        }
+
+        function loadManualSubmission() {
+            const id = document.getElementById('manualSubmissionId').value.trim();
+            if (!id) {
+                alert('Please enter a submission ID');
+                return;
+            }
+            document.getElementById('manualIdEntry').style.display = 'none';
+            document.getElementById('loadingView').style.display = 'block';
+            setTimeout(() => loadSubmission(id), 500);
+        }
+
+        function loadSubmission(id) {
+            const submissions = JSON.parse(localStorage.getItem('sellerSubmissions') || '[]');
+            const submission = submissions.find(s => s.id === id);
+
+            if (!submission) {
+                showError('Submission not found. This link may have expired.');
+                return;
+            }
+
+            if (submission.status !== 'pending_seller') {
+                if (submission.status === 'approved') {
+                    showError('This offer has already been accepted.');
+                } else if (submission.status === 'rejected') {
+                    showError('This submission has been declined.');
+                } else {
+                    showError('This offer is no longer available.');
+                }
+                return;
+            }
+
+            currentSubmission = submission;
+
+            // Populate submission details
+            document.getElementById('itemType').textContent = submission.itemType;
+            document.getElementById('itemCondition').textContent = submission.condition;
+            document.getElementById('itemEra').textContent = submission.era || 'Not specified';
+            document.getElementById('offerPrice').textContent = '$' + submission.adminPrice.toFixed(2);
+            document.getElementById('contactEmail').textContent = submission.email;
+
+            // Show approval view
+            document.getElementById('loadingView').style.display = 'none';
+            document.getElementById('approvalView').style.display = 'block';
+        }
+
+        function acceptOffer() {
+            if (!confirm('Accept this offer of $' + currentSubmission.adminPrice.toFixed(2) + '?')) {
+                return;
+            }
+
+            // Call the admin.js function to handle approval
+            const result = sellerApproveSubmission(currentSubmission.id);
+
+            if (result.success) {
+                document.getElementById('approvalView').style.display = 'none';
+                document.getElementById('successView').style.display = 'block';
+            } else {
+                showError(result.message);
+            }
+        }
+
+        function declineOffer() {
+            if (!confirm('Are you sure you want to decline this offer?')) {
+                return;
+            }
+
+            const submissions = JSON.parse(localStorage.getItem('sellerSubmissions') || '[]');
+            const submission = submissions.find(s => s.id === currentSubmission.id);
+
+            if (submission) {
+                submission.status = 'rejected';
+                submission.adminNotes = 'Declined by seller';
+                submission.reviewedAt = new Date().toISOString();
+                localStorage.setItem('sellerSubmissions', JSON.stringify(submissions));
+
+                document.getElementById('approvalView').style.display = 'none';
+                document.getElementById('declinedView').style.display = 'block';
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('loadingView').style.display = 'none';
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorView').style.display = 'block';
+        }
+
+        function showManualEntry() {
+            document.getElementById('errorView').style.display = 'none';
+            document.getElementById('manualIdEntry').style.display = 'block';
+        }
+
+        // Import sellerApproveSubmission function from admin.js
+        function sellerApproveSubmission(submissionId) {
+            const submissions = JSON.parse(localStorage.getItem('sellerSubmissions') || '[]');
+            const submission = submissions.find(s => s.id === submissionId);
+
+            if (!submission) {
+                return { success: false, message: 'Submission not found' };
+            }
+
+            if (submission.status !== 'pending_seller') {
+                return { success: false, message: 'This submission is no longer pending approval' };
+            }
+
+            // Update submission status
+            submission.status = 'approved';
+            submission.sellerApprovedAt = new Date().toISOString();
+            localStorage.setItem('sellerSubmissions', JSON.stringify(submissions));
+
+            // Auto-create inventory item
+            const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+
+            const newItem = {
+                id: 'sub_' + Date.now().toString(),
+                name: `${submission.itemType} - ${submission.era || 'Vintage'} VT`,
+                description: submission.description,
+                price: 0, // Admin will set retail price later
+                cost: submission.adminPrice, // What admin pays the seller
+                category: submission.itemType,
+                size: 'TBD', // Admin will update
+                condition: submission.condition,
+                images: [], // Admin will add photos later
+                available: true,
+                dropId: null, // Unassigned
+                createdAt: new Date().toISOString(),
+                submissionId: submissionId // Link back to original submission
+            };
+
+            inventory.push(newItem);
+            localStorage.setItem('inventory', JSON.stringify(inventory));
+
+            return {
+                success: true,
+                message: 'Thank you! Your item has been approved. We will contact you shortly to arrange pickup/shipping.',
+                itemId: newItem.id
+            };
+        }
+    </script>
+</body>
+</html>

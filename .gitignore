@@ -1,0 +1,9 @@
+# Test files
+test-autocomplete.html
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hokies Thrift - Thrifted Vintage VT Gear</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Your premier source for authentic Virginia Tech vintage gear">
+    <meta name="theme-color" content="#630031">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Hokies Thrift">
+    <link rel="manifest" href="manifest.json?v=2">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png?v=2">
+
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;900&family=Crimson+Text:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://js.stripe.com/v3/"></script>
+    <!-- Google Places API will be loaded dynamically from localStorage -->
+    <script>
+        // Load Google Places API with key from localStorage
+        (function() {
+            const settings = JSON.parse(localStorage.getItem('googlePlacesSettings') || '{}');
+
+            // Check if autocomplete is enabled (default to false to avoid blocking input)
+            const enabled = settings.enabled === true;
+
+            if (!enabled) {
+                console.log('🗺️ Google Places autocomplete is disabled in settings');
+                console.log('💡 Enable in admin panel → Settings → Google Places API');
+                return;
+            }
+
+            if (settings.apiKey) {
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${settings.apiKey}&libraries=places&callback=Function.prototype`;
+                script.async = true;
+                script.defer = true;
+                script.onerror = function() {
+                    console.error('❌ Google Maps API failed to load. Common causes:');
+                    console.error('  • Invalid API key');
+                    console.error('  • Places API not enabled in Google Cloud Console');
+                    console.error('  • Billing not enabled on Google Cloud account');
+                    console.error('  • Network/firewall blocking the request');
+                    console.error('Check https://console.cloud.google.com/apis/credentials');
+                };
+                document.head.appendChild(script);
+                console.log('🗺️ Loading Google Places API with key:', settings.apiKey.substring(0, 20) + '...');
+            } else {
+                console.warn('⚠️ Google Places API key not configured. Address autocomplete disabled.');
+                console.log('💡 Go to admin panel → Settings → Google Places API to configure');
+            }
+        })();
+
+        // Catch Google Maps API errors (billing, quota, etc.)
+        window.gm_authFailure = function() {
+            console.error('❌ Google Maps Authentication Error!');
+            console.error('This usually means:');
+            console.error('  • API key is invalid or restricted');
+            console.error('  • Billing not enabled (required even for free tier)');
+            console.error('  • API restrictions don\'t allow this domain');
+            alert('Google Maps Error: Please check your API key and billing settings in Google Cloud Console.');
+        };
+    </script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <img src="Brand_assets/4288D638-3270-49DB-8A80-41146977937C.PNG" alt="Hokies Thrift Logo" class="logo-image">
+            </div>
+            <button class="menu-toggle" id="menuToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#home" class="active">Home</a></li>
+                <li><a href="#shop">Shop</a></li>
+                <li><a href="#sell">Sell</a></li>
+                <li><a href="#browse">Browse</a></li>
+                <li>
+                    <button onclick="viewCart()" class="cart-btn" style="background: none; border: none; cursor: pointer; position: relative; padding: 0.5rem 1rem;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18l-2 13H5L3 6z"/>
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="3" y1="6" x2="21" y2="6"/>
+                        </svg>
+                        <span id="cartCount" class="cart-count" style="display: none; position: absolute; top: 0; right: 0; background: var(--orange); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 0.75rem; line-height: 20px; text-align: center;">0</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main>
+        <!-- HOME PAGE -->
+        <section id="home" class="page active">
+            <div class="hero">
+                <!-- Navigation Banner -->
+                <div class="pinterest-banner">
+                    <div class="pinterest-track">
+                        <a href="#shop" class="pinterest-pin nav-card" data-shop-tab="available">
+                            <img src="Brand_assets/Pinterest_box/College outfit inspo.jpg" alt="Available items">
+                            <div class="nav-card-overlay">
+                                <h3>Available Items</h3>
+                            </div>
+                        </a>
+                        <a href="#shop" class="pinterest-pin nav-card" data-shop-tab="upcoming">
+                            <img src="Brand_assets/Pinterest_box/Game Day Outfit Inspo.jpg" alt="Upcoming drops">
+                            <div class="nav-card-overlay">
+                                <h3>Upcoming Drops</h3>
+                            </div>
+                        </a>
+                        <a href="#browse" class="pinterest-pin nav-card">
+                            <img src="Brand_assets/Pinterest_box/Hokies Game Day.jpg" alt="Our picks on other platforms">
+                            <div class="nav-card-overlay">
+                                <h3>Our Picks on Other Platforms</h3>
+                            </div>
+                        </a>
+                        <a href="#sell" class="pinterest-pin nav-card">
+                            <img src="Brand_assets/Pinterest_box/Virginia Tech game day.jpg" alt="Sell my VT gear">
+                            <div class="nav-card-overlay">
+                                <h3>Sell My VT Gear</h3>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="hero-content">
+                    <h1>HOKIES THRIFT</h1>
+                    <p class="tagline">Your premier source for authentic Virginia Tech vintage gear</p>
+                    <div class="social-links">
+                        <a href="https://www.instagram.com/hokiesthrift/?hl=en" target="_blank" class="social-btn instagram">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                            </svg>
+                            @hokiesthrift
+                        </a>
+                        <a href="https://www.linkedin.com/company/hokies-thrift" target="_blank" class="social-btn linkedin">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                            </svg>
+                            LinkedIn
+                        </a>
+                        <a href="https://www.pinterest.com/hokiesthrift" target="_blank" class="social-btn pinterest">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0z"/>
+                            </svg>
+                            Pinterest
+                        </a>
+                    </div>
+
+                    <div class="mission">
+                        <h2>Our Mission</h2>
+                        <p>Preserving Virginia Tech history one vintage piece at a time. We connect Hokies with authentic, quality vintage VT gear while promoting sustainable fashion.</p>
+                    </div>
+
+                    <div class="countdown-container">
+                        <h2>Upcoming Drops</h2>
+                        <div id="upcomingDropsCountdowns">
+                            <!-- Dynamically populated countdowns -->
+                        </div>
+                    </div>
+
+                    <div class="hokies-events-section">
+                        <h2>Upcoming Hokies Events</h2>
+                        <div id="hokiesEventsContainer" class="events-grid">
+                            <!-- Dynamically populated events -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SHOP PAGE -->
+        <section id="shop" class="page">
+            <div class="container">
+                <h1>Shop Vintage VT Gear</h1>
+
+                <div class="shop-tabs">
+                    <button class="tab-btn active" data-tab="available">Available Now</button>
+                    <button class="tab-btn" data-tab="upcoming">Upcoming Drops</button>
+                </div>
+
+                <div class="tab-content active" id="available">
+                    <div class="items-grid" id="availableItems">
+                        <div class="item-card sample">
+                            <div class="item-image">
+                                <span class="placeholder">Sample Item</span>
+                            </div>
+                            <div class="item-details">
+                                <h3>Vintage VT Hoodie</h3>
+                                <p class="item-description">Classic maroon hoodie from the 90s</p>
+                                <p class="item-price">$45.00</p>
+                                <button class="btn-primary">View Details</button>
+                            </div>
+                        </div>
+                        <div class="item-card sample">
+                            <div class="item-image">
+                                <span class="placeholder">Sample Item</span>
+                            </div>
+                            <div class="item-details">
+                                <h3>VT Starter Jacket</h3>
+                                <p class="item-description">Rare vintage starter jacket</p>
+                                <p class="item-price">$85.00</p>
+                                <button class="btn-primary">View Details</button>
+                            </div>
+                        </div>
+                        <div class="item-card sample">
+                            <div class="item-image">
+                                <span class="placeholder">Sample Item</span>
+                            </div>
+                            <div class="item-details">
+                                <h3>Hokie T-Shirt</h3>
+                                <p class="item-description">Single-stitch vintage tee</p>
+                                <p class="item-price">$28.00</p>
+                                <button class="btn-primary">View Details</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="upcoming">
+                    <div id="upcomingDropsPreview">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SELLER SUBMISSION FORM -->
+        <section id="sell" class="page">
+            <div class="container">
+                <h1>Sell Your Vintage VT Gear</h1>
+                <p class="subtitle">Submit your item and get an instant estimate of what you could earn</p>
+
+                <form id="sellerForm" class="seller-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="sellerName">Your Name *</label>
+                            <input type="text" id="sellerName" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sellerEmail">Email *</label>
+                            <input type="email" id="sellerEmail" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sellerPhone">Phone Number</label>
+                            <input type="tel" id="sellerPhone">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="itemType">Item Type *</label>
+                            <select id="itemType" required>
+                                <option value="">Select type</option>
+                                <option value="hoodie">Hoodie/Sweatshirt</option>
+                                <option value="jacket">Jacket</option>
+                                <option value="tshirt">T-Shirt</option>
+                                <option value="jersey">Jersey</option>
+                                <option value="hat">Hat/Cap</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="itemDescription">Item Description *</label>
+                            <textarea id="itemDescription" rows="4" placeholder="Describe the item, its condition, era, any tags or markings..." required></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="itemCondition">Condition *</label>
+                            <select id="itemCondition" required>
+                                <option value="">Select condition</option>
+                                <option value="excellent">Excellent - Like new</option>
+                                <option value="good">Good - Minor wear</option>
+                                <option value="fair">Fair - Visible wear</option>
+                                <option value="poor">Poor - Significant wear</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="itemEra">Approximate Era</label>
+                            <select id="itemEra">
+                                <option value="">Select era</option>
+                                <option value="2020s">2020s</option>
+                                <option value="2010s">2010s</option>
+                                <option value="2000s">2000s</option>
+                                <option value="1990s">1990s</option>
+                                <option value="1980s">1980s</option>
+                                <option value="older">Older than 1980s</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="itemPhotos">Upload Photos (up to 5) *</label>
+                            <input type="file" id="itemPhotos" multiple accept="image/*" required>
+                            <small>Please upload clear photos of your item from multiple angles</small>
+                            <div id="sellerPhotoPreview" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+
+                    <div class="estimate-result" id="estimateResult">
+                        <h3>Estimated Payout</h3>
+                        <div class="estimate-amount" id="estimateAmount">$0 - $0</div>
+                        <p class="estimate-note">This is an estimate. Final pricing depends on item verification and market demand.</p>
+                    </div>
+
+                    <button type="submit" class="btn-primary btn-large">Submit for Review</button>
+                </form>
+
+                <div class="submission-success" id="submissionSuccess" style="display: none;">
+                    <h2>✓ Submission Received!</h2>
+                    <p>We'll review your item and get back to you within 24-48 hours.</p>
+                    <button class="btn-secondary" onclick="resetForm()">Submit Another Item</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- CHECKOUT PAGE -->
+        <section id="checkout" class="page">
+            <div class="container">
+                <h1>Checkout</h1>
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <div id="checkoutContent">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BROWSE PAGE -->
+        <section id="browse" class="page">
+            <div class="container">
+                <h1>Shop Our eBay Store</h1>
+                <p class="subtitle">Browse our full collection of vintage VT gear</p>
+
+                <div class="browse-controls">
+                    <button class="btn-secondary" onclick="refreshEbayListings()">
+                        🔄 Refresh Listings
+                    </button>
+                    <select id="sortBy" onchange="sortEbayListings(this.value)">
+                        <option value="recent">Recently Listed</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                    </select>
+                </div>
+
+                <div id="ebayListingsGrid" class="items-grid">
+                    <!-- Populated by loadEbayListings() -->
+                </div>
+
+                <p class="affiliate-notice">
+                    Commission earned on purchases made through these links at no extra cost to you.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Hokies Thrift</h3>
+                <p>Thrifted Vintage since 2021</p>
+            </div>
+            <div class="footer-section">
+                <h3>Connect</h3>
+                <a href="https://www.instagram.com/hokiesthrift/?hl=en" target="_blank">Instagram</a>
+                <a href="https://www.linkedin.com/company/hokies-thrift" target="_blank">LinkedIn</a>
+                <a href="https://www.pinterest.com/hokiesthrift" target="_blank">Pinterest</a>
+            </div>
+            <div class="footer-section">
+                <h3>Shop</h3>
+                <a href="#shop">Available Items</a>
+                <a href="#sell">Sell Your Gear</a>
+                <a href="#browse">Browse Marketplace</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Hokies Thrift. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script src="install-prompt.js"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('✅ PWA: Service Worker registered successfully:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('❌ PWA: Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
