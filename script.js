@@ -1,45 +1,17 @@
-// Worker URL — update this after deploying your Cloudflare Worker
+// Worker URL — kept for eBay proxy only
 const WORKER_URL = 'https://hokies-thrift-ebay.laurenleoni24.workers.dev';
 
 // Navigation and page switching
 document.addEventListener('DOMContentLoaded', function() {
-    // Clean up storage on load to prevent quota issues
-    cleanupStorage();
-
     initNavigation();
     initCountdown();
     initShopTabs();
     initNavigationCards();
     initSellerForm();
     initMobileMenu();
-    updateCartCount(); // Update cart count on page load
-    loadHokiesEvents(); // Load Hokies events on home page
+    updateCartCount();
+    loadHokiesEvents();
 });
-
-// Clean up old/large data to prevent storage quota issues
-function cleanupStorage() {
-    try {
-        // Remove old seller submissions that are no longer needed (keep only pending_admin status)
-        const submissions = JSON.parse(localStorage.getItem('sellerSubmissions') || '[]');
-        const recentSubmissions = submissions.filter(s => s.status === 'pending_admin' || s.status === 'pending_seller');
-
-        // Only keep recent submissions (last 30 days)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const cleanedSubmissions = recentSubmissions.filter(s => {
-            const submissionDate = new Date(s.date);
-            return submissionDate > thirtyDaysAgo;
-        });
-
-        if (cleanedSubmissions.length < submissions.length) {
-            localStorage.setItem('sellerSubmissions', JSON.stringify(cleanedSubmissions));
-            console.log(`Cleaned up ${submissions.length - cleanedSubmissions.length} old submissions`);
-        }
-    } catch (error) {
-        console.error('Storage cleanup error:', error);
-    }
-}
 
 // Navigation between pages
 function initNavigation() {
@@ -51,44 +23,34 @@ function initNavigation() {
             e.preventDefault();
             const targetId = this.getAttribute('href').substring(1);
 
-            // Update active states
             navLinks.forEach(l => l.classList.remove('active'));
             this.classList.add('active');
 
-            // Show target page
             pages.forEach(page => page.classList.remove('active'));
             document.getElementById(targetId).classList.add('active');
 
-            // Load eBay listings when browse page is activated
             if (targetId === 'browse') {
                 loadEbayListings();
             }
 
-            // Close mobile menu if open
             document.getElementById('navLinks').classList.remove('active');
-
-            // Scroll to top
             window.scrollTo(0, 0);
         });
     });
 
-    // Handle quick links
     const quickLinks = document.querySelectorAll('.quick-link');
     quickLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             const targetId = this.getAttribute('href').substring(1);
 
-            // Update nav
             navLinks.forEach(l => l.classList.remove('active'));
             const targetNav = document.querySelector(`.nav-links a[href="#${targetId}"]`);
             if (targetNav) targetNav.classList.add('active');
 
-            // Show page
             pages.forEach(page => page.classList.remove('active'));
             document.getElementById(targetId).classList.add('active');
 
-            // Load eBay listings when browse page is activated
             if (targetId === 'browse') {
                 loadEbayListings();
             }
@@ -110,17 +72,38 @@ function initMobileMenu() {
 
 // Countdown Timer
 // Multi-Drop Countdown System
+let cachedDrops = null;
+let cachedDropsTimestamp = 0;
+const DROPS_CACHE_DURATION = 60000; // Refresh from Supabase every 60 seconds
+
 function initCountdown() {
     updateUpcomingDrops();
     setInterval(updateUpcomingDrops, 1000);
 }
 
-function updateUpcomingDrops() {
-    const drops = JSON.parse(localStorage.getItem('drops') || '[]');
+async function updateUpcomingDrops() {
+    // Refresh drops from Supabase every 60 seconds (not every tick)
+    const now = Date.now();
+    if (!cachedDrops || (now - cachedDropsTimestamp) > DROPS_CACHE_DURATION) {
+        try {
+            const { data, error } = await supabase
+                .from('drops')
+                .select('*')
+                .in('status', ['scheduled', 'live']);
+            if (!error && data) {
+                cachedDrops = data;
+            }
+        } catch (e) {
+            console.warn('Failed to fetch drops from Supabase:', e);
+        }
+        if (!cachedDrops) cachedDrops = [];
+        cachedDropsTimestamp = now;
+    }
+    const drops = cachedDrops;
     const scheduledDrops = drops
         .filter(d => d.status === 'scheduled')
-        .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
-        .slice(0, 3); // Show up to 3 upcoming drops
+        .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
+        .slice(0, 3);
 
     const container = document.getElementById('upcomingDropsCountdowns');
 
@@ -138,7 +121,7 @@ function updateUpcomingDrops() {
 
     container.innerHTML = scheduledDrops.map(drop => {
         const now = new Date().getTime();
-        const target = new Date(drop.scheduledDate).getTime();
+        const target = new Date(drop.scheduled_date).getTime();
         const distance = target - now;
 
         if (distance <= 0) {
@@ -175,64 +158,68 @@ function updateUpcomingDrops() {
                         <span class="label">Seconds</span>
                     </div>
                 </div>
-                <p class="drop-date">${new Date(drop.scheduledDate).toLocaleString()}</p>
+                <p class="drop-date">${new Date(drop.scheduled_date).toLocaleString()}</p>
             </div>
         `;
     }).join('');
 }
 
 // Load and display Hokies Events on home page
-function loadHokiesEvents() {
-    const events = JSON.parse(localStorage.getItem('hokiesEvents') || '[]');
+async function loadHokiesEvents() {
     const container = document.getElementById('hokiesEventsContainer');
-
     if (!container) return;
 
-    // Filter to only show future events and sort by date
-    const now = new Date();
-    const upcomingEvents = events
-        .filter(event => new Date(event.date) >= now)
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .slice(0, 6); // Show up to 6 upcoming events
+    try {
+        const { data: events, error } = await supabase
+            .from('hokies_events')
+            .select('*')
+            .gte('event_date', new Date().toISOString())
+            .order('event_date', { ascending: true })
+            .limit(6);
 
-    if (upcomingEvents.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 3rem; color: var(--text-light);">
-                <p>No upcoming Hokies events scheduled</p>
-                <p style="opacity: 0.8;">Check back soon for event updates!</p>
-            </div>
-        `;
-        return;
+        if (error) throw error;
+
+        if (!events || events.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 3rem; color: var(--text-light);">
+                    <p>No upcoming Hokies events scheduled</p>
+                    <p style="opacity: 0.8;">Check back soon for event updates!</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = events.map(event => {
+            const eventDate = new Date(event.event_date);
+            const dateString = eventDate.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+            const timeString = eventDate.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+
+            return `
+                <div class="event-card">
+                    <div class="event-date-badge">
+                        <div class="event-month">${eventDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</div>
+                        <div class="event-day">${eventDate.getDate()}</div>
+                    </div>
+                    <div class="event-details">
+                        <h3>${event.name}</h3>
+                        <p class="event-time">🕐 ${timeString}</p>
+                        ${event.location ? `<p class="event-location">📍 ${event.location}</p>` : ''}
+                        ${event.description ? `<p class="event-description">${event.description}</p>` : ''}
+                        ${event.link ? `<a href="${event.link}" target="_blank" class="event-link">Event Details →</a>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('Failed to load events:', err);
     }
-
-    container.innerHTML = upcomingEvents.map(event => {
-        const eventDate = new Date(event.date);
-        const dateString = eventDate.toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric'
-        });
-        const timeString = eventDate.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit'
-        });
-
-        return `
-            <div class="event-card">
-                <div class="event-date-badge">
-                    <div class="event-month">${eventDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</div>
-                    <div class="event-day">${eventDate.getDate()}</div>
-                </div>
-                <div class="event-details">
-                    <h3>${event.name}</h3>
-                    <p class="event-time">🕐 ${timeString}</p>
-                    ${event.location ? `<p class="event-location">📍 ${event.location}</p>` : ''}
-                    ${event.description ? `<p class="event-description">${event.description}</p>` : ''}
-                    ${event.link ? `<a href="${event.link}" target="_blank" class="event-link">Event Details →</a>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
 }
 
 // Shop Tabs
@@ -240,22 +227,18 @@ function initShopTabs() {
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
 
-    // Load shop inventory on initial page load
     loadShopInventory();
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', function() {
             const targetTab = this.getAttribute('data-tab');
 
-            // Update button states
             tabBtns.forEach(b => b.classList.remove('active'));
             this.classList.add('active');
 
-            // Update content
             tabContents.forEach(content => content.classList.remove('active'));
             document.getElementById(targetTab).classList.add('active');
 
-            // Load content when tabs are selected
             if (targetTab === 'upcoming') {
                 loadUpcomingDropsPreview();
             } else if (targetTab === 'available-now') {
@@ -277,18 +260,14 @@ function initNavigationCards() {
             const targetId = this.getAttribute('href').substring(1);
             const shopTab = this.getAttribute('data-shop-tab');
 
-            // Update nav links
             navLinks.forEach(l => l.classList.remove('active'));
             const targetNav = document.querySelector(`.nav-links a[href="#${targetId}"]`);
             if (targetNav) targetNav.classList.add('active');
 
-            // Show target page
             pages.forEach(page => page.classList.remove('active'));
             document.getElementById(targetId).classList.add('active');
 
-            // If navigating to shop with a specific tab
             if (targetId === 'shop' && shopTab) {
-                // Switch to the correct shop tab
                 const tabBtns = document.querySelectorAll('.tab-btn');
                 const tabContents = document.querySelectorAll('.tab-content');
 
@@ -304,7 +283,6 @@ function initNavigationCards() {
                     targetContent.classList.add('active');
                 }
 
-                // Load the appropriate content
                 if (shopTab === 'upcoming') {
                     loadUpcomingDropsPreview();
                 } else if (shopTab === 'available') {
@@ -312,72 +290,93 @@ function initNavigationCards() {
                 }
             }
 
-            // Load eBay listings when browse page is activated
             if (targetId === 'browse') {
                 loadEbayListings();
             }
 
-            // Scroll to top
             window.scrollTo(0, 0);
         });
     });
 }
 
 // Load upcoming drops preview for the "Upcoming Drops" tab
-function loadUpcomingDropsPreview() {
-    const drops = JSON.parse(localStorage.getItem('drops') || '[]');
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-
-    const scheduledDrops = drops
-        .filter(d => d.status === 'scheduled')
-        .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
-
+async function loadUpcomingDropsPreview() {
     const container = document.getElementById('upcomingDropsPreview');
-
     if (!container) return;
 
-    if (scheduledDrops.length === 0) {
-        container.innerHTML = `
-            <div class="upcoming-info" style="text-align: center; padding: 3rem;">
-                <h2>No upcoming drops scheduled yet</h2>
-                <p>Follow us on Instagram to get notified when we announce new drops!</p>
-                <a href="https://www.instagram.com/hokiesthrift/?hl=en" target="_blank" class="btn-primary">Follow on Instagram</a>
-            </div>
-        `;
-        return;
-    }
+    try {
+        // Fetch scheduled drops with their product items + images
+        const { data: drops, error } = await supabase
+            .from('drops')
+            .select('*, drop_items(product_id)')
+            .eq('status', 'scheduled')
+            .order('scheduled_date', { ascending: true });
 
-    container.innerHTML = scheduledDrops.map(drop => {
-        const dropItems = inventory.filter(item => drop.itemIds.includes(item.id));
-        const sampleImages = dropItems.slice(0, 4).map(item => {
-            const images = item.images || [];
-            return images.length > 0 ? images[0] : null;
-        }).filter(img => img !== null);
+        if (error) throw error;
 
-        const now = new Date().getTime();
-        const target = new Date(drop.scheduledDate).getTime();
-        const distance = target - now;
-        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-        return `
-            <div class="upcoming-drop-preview">
-                ${sampleImages.length > 0 ? `
-                    <div class="drop-preview-images">
-                        ${sampleImages.slice(0, 4).map(img =>
-                            `<img src="${img}" alt="Preview">`
-                        ).join('')}
-                    </div>
-                ` : ''}
-                <div class="drop-preview-info">
-                    <h3>${drop.name}</h3>
-                    ${drop.description ? `<p>${drop.description}</p>` : ''}
-                    <p class="drop-stats">${drop.itemIds.length} items dropping in ${days > 0 ? days + ' days' : hours + ' hours'}</p>
-                    <p class="drop-schedule"><strong>Drops:</strong> ${new Date(drop.scheduledDate).toLocaleString()}</p>
+        if (!drops || drops.length === 0) {
+            container.innerHTML = `
+                <div class="upcoming-info" style="text-align: center; padding: 3rem;">
+                    <h2>No upcoming drops scheduled yet</h2>
+                    <p>Follow us on Instagram to get notified when we announce new drops!</p>
+                    <a href="https://www.instagram.com/hokiesthrift/?hl=en" target="_blank" class="btn-primary">Follow on Instagram</a>
                 </div>
-            </div>
-        `;
-    }).join('');
+            `;
+            return;
+        }
+
+        // Gather all product IDs across all drops
+        const allProductIds = drops.flatMap(d => (d.drop_items || []).map(di => di.product_id));
+
+        // Fetch products with images for preview
+        let productsMap = {};
+        if (allProductIds.length > 0) {
+            const { data: products } = await supabase
+                .from('products')
+                .select('id, product_images(storage_path)')
+                .in('id', allProductIds);
+            if (products) {
+                products.forEach(p => { productsMap[p.id] = p; });
+            }
+        }
+
+        container.innerHTML = drops.map(drop => {
+            const dropProductIds = (drop.drop_items || []).map(di => di.product_id);
+            const sampleImages = dropProductIds.slice(0, 4).map(pid => {
+                const product = productsMap[pid];
+                if (product && product.product_images && product.product_images.length > 0) {
+                    return product.product_images[0].storage_path;
+                }
+                return null;
+            }).filter(img => img !== null);
+
+            const now = new Date().getTime();
+            const target = new Date(drop.scheduled_date).getTime();
+            const distance = target - now;
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+            return `
+                <div class="upcoming-drop-preview">
+                    ${sampleImages.length > 0 ? `
+                        <div class="drop-preview-images">
+                            ${sampleImages.slice(0, 4).map(img =>
+                                `<img src="${img}" alt="Preview">`
+                            ).join('')}
+                        </div>
+                    ` : ''}
+                    <div class="drop-preview-info">
+                        <h3>${drop.name}</h3>
+                        ${drop.description ? `<p>${drop.description}</p>` : ''}
+                        <p class="drop-stats">${dropProductIds.length} items dropping in ${days > 0 ? days + ' days' : hours + ' hours'}</p>
+                        <p class="drop-schedule"><strong>Drops:</strong> ${new Date(drop.scheduled_date).toLocaleString()}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('Failed to load upcoming drops preview:', err);
+    }
 }
 
 // Seller Form with Price Estimation
@@ -389,14 +388,13 @@ function initSellerForm() {
     const estimateAmount = document.getElementById('estimateAmount');
     const itemPhotos = document.getElementById('itemPhotos');
 
-    // Check if all required elements exist
     if (!form || !itemType || !itemCondition || !itemEra || !estimateAmount || !itemPhotos) {
         console.error('Seller form elements not found');
         return;
     }
 
-    // Handle photo preview
-    let sellerUploadedPhotos = [];
+    // Handle photo preview — store File objects for Supabase upload
+    let sellerPhotoFiles = [];
     itemPhotos.addEventListener('change', function(e) {
         const files = e.target.files;
         const preview = document.getElementById('sellerPhotoPreview');
@@ -405,59 +403,28 @@ function initSellerForm() {
             return;
         }
         preview.innerHTML = '';
-        sellerUploadedPhotos = [];
+        sellerPhotoFiles = [];
 
         if (files.length > 5) {
             alert('Maximum 5 photos allowed. Only first 5 will be used.');
         }
 
         const fileArray = Array.from(files).slice(0, 5);
-        let loadedCount = 0;
 
-        fileArray.forEach((file, index) => {
+        fileArray.forEach((file) => {
+            sellerPhotoFiles.push(file);
+
             const reader = new FileReader();
             reader.onload = function(event) {
-                // Compress the image before storing
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
+                const imgContainer = document.createElement('div');
+                imgContainer.style.cssText = 'position: relative; display: inline-block;';
 
-                    // Resize to max 600px width/height while maintaining aspect ratio
-                    let width = img.width;
-                    let height = img.height;
-                    const maxSize = 600;
+                const previewImg = document.createElement('img');
+                previewImg.src = event.target.result;
+                previewImg.style.cssText = 'width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 2px solid var(--gray-300);';
 
-                    if (width > height && width > maxSize) {
-                        height = (height / width) * maxSize;
-                        width = maxSize;
-                    } else if (height > maxSize) {
-                        width = (width / height) * maxSize;
-                        height = maxSize;
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // Compress to JPEG at 0.3 quality for smaller file size
-                    const compressedData = canvas.toDataURL('image/jpeg', 0.3);
-                    sellerUploadedPhotos.push(compressedData);
-
-                    // Show preview
-                    const imgContainer = document.createElement('div');
-                    imgContainer.style.cssText = 'position: relative; display: inline-block;';
-
-                    const previewImg = document.createElement('img');
-                    previewImg.src = compressedData;
-                    previewImg.style.cssText = 'width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 2px solid var(--gray-300);';
-
-                    imgContainer.appendChild(previewImg);
-                    preview.appendChild(imgContainer);
-
-                    loadedCount++;
-                };
-                img.src = event.target.result;
+                imgContainer.appendChild(previewImg);
+                preview.appendChild(imgContainer);
             };
             reader.readAsDataURL(file);
         });
@@ -478,7 +445,6 @@ function initSellerForm() {
             return;
         }
 
-        // Base prices by type
         const basePrices = {
             'hoodie': { min: 25, max: 45 },
             'jacket': { min: 40, max: 90 },
@@ -488,7 +454,6 @@ function initSellerForm() {
             'other': { min: 15, max: 40 }
         };
 
-        // Condition multipliers
         const conditionMultipliers = {
             'excellent': 1.0,
             'good': 0.8,
@@ -496,7 +461,6 @@ function initSellerForm() {
             'poor': 0.4
         };
 
-        // Era bonus
         const eraBonus = {
             '2020s': 0,
             '2010s': 5,
@@ -510,70 +474,81 @@ function initSellerForm() {
         let multiplier = conditionMultipliers[condition] || 0.8;
         let bonus = era ? (eraBonus[era] || 0) : 0;
 
-        let minPrice = Math.round((base.min * multiplier + bonus) * 0.6); // 60% payout
+        let minPrice = Math.round((base.min * multiplier + bonus) * 0.6);
         let maxPrice = Math.round((base.max * multiplier + bonus) * 0.6);
 
         estimateAmount.textContent = `$${minPrice} - $${maxPrice}`;
     }
 
-    // Form submission
-    form.addEventListener('submit', function(e) {
+    // Form submission — save to Supabase + upload images to Storage
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
-        console.log('Form submitted, photos count:', sellerUploadedPhotos.length);
 
         try {
-            // Validate photos
-            if (sellerUploadedPhotos.length === 0) {
+            if (sellerPhotoFiles.length === 0) {
                 alert('Please upload at least one photo of your item');
                 return;
             }
 
-            // Get the current estimate
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+            }
+
             const estimateText = document.getElementById('estimateAmount').textContent;
+            const submissionId = Date.now().toString();
 
-            // Create submission object
-            const submission = {
-                id: Date.now().toString(),
-                date: new Date().toISOString(),
-                name: document.getElementById('sellerName').value,
-                email: document.getElementById('sellerEmail').value,
-                phone: document.getElementById('sellerPhone').value || '',
-                itemType: itemType.value,
-                description: document.getElementById('itemDescription').value,
-                condition: itemCondition.value,
-                era: itemEra.value || '',
-                estimate: estimateText,
-                photos: sellerUploadedPhotos,  // Add photos to submission
-                status: 'pending_admin',  // pending_admin → pending_seller → approved → rejected
-                adminPrice: null,
-                adminNotes: null,
-                reviewedAt: null,
-                sellerApprovedAt: null
-            };
+            // Insert submission into Supabase
+            const { error: insertError } = await supabase
+                .from('seller_submissions')
+                .insert({
+                    id: submissionId,
+                    name: document.getElementById('sellerName').value,
+                    email: document.getElementById('sellerEmail').value,
+                    phone: document.getElementById('sellerPhone').value || null,
+                    item_type: itemType.value,
+                    description: document.getElementById('itemDescription').value,
+                    condition: itemCondition.value,
+                    era: itemEra.value || null,
+                    estimate: estimateText,
+                    status: 'pending_admin'
+                });
 
-            // Save to localStorage for admin backend
-            const submissions = JSON.parse(localStorage.getItem('sellerSubmissions') || '[]');
-            submissions.push(submission);
+            if (insertError) throw insertError;
 
-            try {
-                localStorage.setItem('sellerSubmissions', JSON.stringify(submissions));
-                console.log('Submission saved:', submission);
-            } catch (storageError) {
-                if (storageError.name === 'QuotaExceededError') {
-                    alert('Storage limit reached. Your browser\'s storage is full.\n\nPlease:\n1. Try refreshing this page and submitting again\n2. Or use smaller photo files\n3. Or contact us directly to submit your item');
-                } else {
-                    throw storageError; // Re-throw if it's a different error
-                }
-                return;
+            // Upload photos to Supabase Storage
+            for (let i = 0; i < sellerPhotoFiles.length; i++) {
+                const file = sellerPhotoFiles[i];
+                const compressed = await compressImage(file, 1200, 0.7);
+                const url = await uploadImageFile('submission-images', compressed, `submissions/${submissionId}`);
+
+                await supabase
+                    .from('submission_images')
+                    .insert({
+                        submission_id: submissionId,
+                        storage_path: url,
+                        display_order: i
+                    });
             }
 
             // Show success message
             form.style.display = 'none';
             document.getElementById('estimateResult').style.display = 'none';
             document.getElementById('submissionSuccess').style.display = 'block';
+
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Item';
+            }
         } catch (error) {
             console.error('Error submitting form:', error);
             alert('An error occurred while submitting your item. Please try again.');
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Item';
+            }
         }
     });
 }
@@ -587,41 +562,33 @@ function resetForm() {
     document.getElementById('estimateAmount').textContent = '$0 - $0';
 }
 
-// Marketplace Search
 // ==============================
 // EBAY INTEGRATION
 // ==============================
 
-// Cache for eBay listings to reduce API calls
 let ebayListingsCache = {
     data: null,
     timestamp: null,
-    cacheDuration: 15 * 60 * 1000 // 15 minutes
+    cacheDuration: 15 * 60 * 1000
 };
 
-/**
- * Load eBay listings when browse page is activated
- */
 async function loadEbayListings() {
     const grid = document.getElementById('ebayListingsGrid');
-    const workerBase = WORKER_URL.replace(/\/$/, '');
 
-    // Fetch settings from Worker KV (fallback to localStorage)
-    let settings;
+    // Fetch eBay settings from Supabase settings table
+    let settings = null;
     try {
-        const settingsResp = await fetch(`${workerBase}/settings`);
-        if (settingsResp.ok) {
-            settings = await settingsResp.json();
-        }
+        const { data } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('key', 'ebay')
+            .single();
+        if (data) settings = data.value;
     } catch (e) {
-        console.warn('Could not fetch settings from Worker, falling back to localStorage:', e);
-    }
-    if (!settings) {
-        settings = JSON.parse(localStorage.getItem('ebaySettings') || '{}');
+        console.warn('Could not fetch eBay settings from Supabase:', e);
     }
 
-    // Check if eBay is configured
-    if (!settings.proxyUrl || !settings.ebaySellerUsername) {
+    if (!settings || !settings.proxyUrl || !settings.ebaySellerUsername) {
         grid.innerHTML = `
             <div class="ebay-error">
                 <h3>⚙️ eBay Integration Not Configured</h3>
@@ -635,16 +602,13 @@ async function loadEbayListings() {
     // Check cache first
     if (ebayListingsCache.data && ebayListingsCache.timestamp &&
         (Date.now() - ebayListingsCache.timestamp) < ebayListingsCache.cacheDuration) {
-        console.log('Using cached eBay listings');
         renderEbayListings(ebayListingsCache.data);
         return;
     }
 
-    // Show loading state
     grid.innerHTML = '<div class="ebay-loading">⏳ Loading eBay listings...</div>';
 
     try {
-        // Fetch listings from proxy
         const listingsUrl = `${settings.proxyUrl.replace(/\/$/, '')}/listings?seller=${encodeURIComponent(settings.ebaySellerUsername)}&limit=200`;
         const response = await fetch(listingsUrl);
 
@@ -658,13 +622,10 @@ async function loadEbayListings() {
             throw new Error(data.error);
         }
 
-        // Cache the results
         ebayListingsCache.data = data;
         ebayListingsCache.timestamp = Date.now();
 
-        // Render listings
         renderEbayListings(data);
-
     } catch (error) {
         console.error('Failed to load eBay listings:', error);
         grid.innerHTML = `
@@ -680,12 +641,8 @@ async function loadEbayListings() {
     }
 }
 
-/**
- * Render eBay listings to the grid
- */
 async function renderEbayListings(data) {
     const grid = document.getElementById('ebayListingsGrid');
-    const workerBase = WORKER_URL.replace(/\/$/, '');
 
     if (!data.items || data.items.length === 0) {
         grid.innerHTML = `
@@ -697,29 +654,29 @@ async function renderEbayListings(data) {
         return;
     }
 
-    // Fetch settings and approved items from Worker KV (fallback to localStorage)
-    let settings, approvedItems;
+    // Fetch settings and approved items from Supabase
+    let settings = {}, approvedItems = [];
     try {
-        const [settingsResp, approvedResp] = await Promise.all([
-            fetch(`${workerBase}/settings`),
-            fetch(`${workerBase}/approved-items`)
-        ]);
-        if (settingsResp.ok) settings = await settingsResp.json();
-        if (approvedResp.ok) approvedItems = await approvedResp.json();
+        const { data: rows } = await supabase
+            .from('settings')
+            .select('key, value')
+            .in('key', ['ebay', 'ebay_approved_items']);
+        if (rows) {
+            rows.forEach(r => {
+                if (r.key === 'ebay') settings = r.value;
+                if (r.key === 'ebay_approved_items') approvedItems = r.value || [];
+            });
+        }
     } catch (e) {
-        console.warn('Could not fetch from Worker KV, falling back to localStorage:', e);
+        console.warn('Could not fetch eBay settings from Supabase:', e);
     }
-    if (!settings) settings = JSON.parse(localStorage.getItem('ebaySettings') || '{}');
-    if (!approvedItems) approvedItems = JSON.parse(localStorage.getItem('ebayApprovedItems') || '[]');
 
     let itemsToDisplay = data.items;
 
-    // If there are approved items, only show those
     if (approvedItems.length > 0) {
         itemsToDisplay = data.items.filter(item => approvedItems.includes(item.itemId));
     }
 
-    // Check if filtered list is empty
     if (itemsToDisplay.length === 0) {
         grid.innerHTML = `
             <div class="info-box">
@@ -749,13 +706,8 @@ async function renderEbayListings(data) {
             </div>
         `;
     }).join('');
-
-    console.log(`Rendered ${itemsToDisplay.length} approved eBay listings (${data.items.length} total available)`);
 }
 
-/**
- * Build affiliate link with EPN tracking
- */
 function buildAffiliateLink(itemUrl, campaignId) {
     if (!itemUrl || !campaignId) {
         return itemUrl;
@@ -764,7 +716,7 @@ function buildAffiliateLink(itemUrl, campaignId) {
     const params = new URLSearchParams({
         mkevt: '1',
         mkcid: '1',
-        mkrid: '711-53200-19255-0', // eBay US rotation ID
+        mkrid: '711-53200-19255-0',
         campid: campaignId,
         toolid: '10001'
     });
@@ -772,18 +724,12 @@ function buildAffiliateLink(itemUrl, campaignId) {
     return `${itemUrl}&${params.toString()}`;
 }
 
-/**
- * Refresh eBay listings (clear cache and reload)
- */
 function refreshEbayListings() {
     ebayListingsCache.data = null;
     ebayListingsCache.timestamp = null;
     loadEbayListings();
 }
 
-/**
- * Sort eBay listings by price or date
- */
 function sortEbayListings(sortBy) {
     const data = ebayListingsCache.data;
 
@@ -791,7 +737,7 @@ function sortEbayListings(sortBy) {
         return;
     }
 
-    const items = [...data.items]; // Create a copy
+    const items = [...data.items];
 
     switch (sortBy) {
         case 'price-low':
@@ -802,17 +748,12 @@ function sortEbayListings(sortBy) {
             break;
         case 'recent':
         default:
-            // eBay API returns recent first by default, so no sorting needed
             break;
     }
 
-    // Re-render with sorted items
     renderEbayListings({ ...data, items });
 }
 
-/**
- * Escape HTML to prevent XSS
- */
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -823,30 +764,26 @@ function escapeHtml(text) {
 // SHIPPO SHIPPING INTEGRATION
 // ==============================
 
-/**
- * Create shipping label via Shippo API
- * @param {Object} order - Order details including customer shipping info
- * @returns {Promise<Object>} Shipment object with label_url and tracking_number
- */
 async function createShippingLabel(order) {
-    const shippoSettings = JSON.parse(localStorage.getItem('shippoSettings') || '{}');
-
-    console.log('📋 Shippo settings loaded:', {
-        hasApiKey: !!shippoSettings.shippoApiKey,
-        apiKeyPrefix: shippoSettings.shippoApiKey ? shippoSettings.shippoApiKey.substring(0, 15) + '...' : 'NOT SET',
-        shipFrom: shippoSettings.shipFromCity ? `${shippoSettings.shipFromCity}, ${shippoSettings.shipFromState}` : 'NOT SET',
-        email: shippoSettings.shipFromEmail || 'NOT SET',
-        phone: shippoSettings.shipFromPhone || 'NOT SET',
-        defaultService: shippoSettings.shippoDefaultService || 'usps_first'
-    });
+    // Fetch Shippo settings from Supabase
+    let shippoSettings = {};
+    try {
+        const { data } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('key', 'shippo')
+            .single();
+        if (data) shippoSettings = data.value;
+    } catch (e) {
+        console.warn('Could not fetch Shippo settings:', e);
+    }
 
     if (!shippoSettings.shippoApiKey) {
-        console.error('❌ Shippo API key not configured');
+        console.error('Shippo API key not configured');
         return null;
     }
 
     try {
-        // Get shipping address from order (now structured as object)
         const address = order.shippingAddress;
         const street1 = address.street;
         const street2 = address.apt || '';
@@ -854,12 +791,6 @@ async function createShippingLabel(order) {
         const state = address.state;
         const zip = address.zip;
 
-        console.log('📦 Creating shipping label for:', {
-            customer: order.customerName,
-            address: `${street1}${street2 ? ', ' + street2 : ''}, ${city}, ${state} ${zip}`
-        });
-
-        // Step 1: Create shipment
         const shipmentData = {
             address_from: {
                 name: "Hokies Thrift",
@@ -892,8 +823,6 @@ async function createShippingLabel(order) {
             async: false
         };
 
-        console.log('Creating Shippo shipment...', shipmentData);
-
         const shipmentResponse = await fetch('https://api.goshippo.com/shipments/', {
             method: 'POST',
             headers: {
@@ -909,19 +838,13 @@ async function createShippingLabel(order) {
         }
 
         const shipment = await shipmentResponse.json();
-        console.log('✅ Shipment created:', shipment);
 
-        // Step 2: Get rates and select cheapest one
         const rates = shipment.rates || [];
 
-        console.log(`Found ${rates.length} shipping rates:`, rates);
-
         if (rates.length === 0) {
-            console.error('❌ No shipping rates returned. Shipment:', shipment);
             throw new Error('No shipping rates available');
         }
 
-        // Filter by service level if specified
         let selectedRate = null;
         const preferredService = shippoSettings.shippoDefaultService || 'usps_first';
 
@@ -933,19 +856,10 @@ async function createShippingLabel(order) {
             selectedRate = rates.find(r => r.servicelevel && r.servicelevel.name && r.servicelevel.name.toLowerCase().includes('ground'));
         }
 
-        // Fallback to cheapest rate
         if (!selectedRate) {
             selectedRate = rates.sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))[0];
         }
 
-        console.log('✅ Selected rate:', {
-            provider: selectedRate.provider,
-            service: selectedRate.servicelevel.name,
-            amount: selectedRate.amount,
-            currency: selectedRate.currency
-        });
-
-        // Step 3: Purchase label
         const transactionData = {
             rate: selectedRate.object_id,
             label_file_type: "PDF",
@@ -967,11 +881,9 @@ async function createShippingLabel(order) {
         }
 
         const transaction = await transactionResponse.json();
-        console.log('Label created:', transaction);
 
         if (transaction.status !== 'SUCCESS') {
             const errorMsg = transaction.messages ? JSON.stringify(transaction.messages, null, 2) : 'Unknown error';
-            console.error('❌ Shippo Transaction Failed:', transaction);
             throw new Error(`Label creation failed: ${errorMsg}`);
         }
 
@@ -986,90 +898,132 @@ async function createShippingLabel(order) {
         };
 
     } catch (error) {
-        console.error('❌ Shippo label creation error:', error);
-        console.error('Error details:', error.message);
-
-        // Try to parse and show more details if it's a JSON error
-        try {
-            const errorObj = JSON.parse(error.message);
-            console.error('Parsed error:', errorObj);
-        } catch (e) {
-            // Not JSON, just a regular error
-        }
-
+        console.error('Shippo label creation error:', error);
         return null;
     }
 }
 
-// Load inventory from admin backend (filtered by live drops only)
-function loadShopInventory() {
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-    const drops = JSON.parse(localStorage.getItem('drops') || '[]');
-
-    // Get all live drops
-    const liveDrops = drops.filter(d => d.status === 'live');
-    const liveDropItemIds = liveDrops.flatMap(d => d.itemIds);
-
-    // Filter items: must be available AND in a live drop
-    const availableItems = inventory.filter(item =>
-        item.available && liveDropItemIds.includes(item.id)
-    );
-
+// Load inventory from Supabase (filtered by live drops only)
+async function loadShopInventory() {
     const itemsGrid = document.getElementById('availableItems');
 
-    if (availableItems.length === 0) {
+    try {
+        // Fetch live drops with their product IDs
+        const { data: liveDrops, error: dropsError } = await supabase
+            .from('drops')
+            .select('*, drop_items(product_id)')
+            .eq('status', 'live');
+
+        console.log('[Shop Debug] Live drops query:', { liveDrops, dropsError });
+
+        if (dropsError) throw dropsError;
+
+        if (!liveDrops || liveDrops.length === 0) {
+            itemsGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                    <h3>No items available right now</h3>
+                    <p>Check the upcoming drops below!</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Gather all product IDs from live drops
+        const liveDropItemIds = liveDrops.flatMap(d => (d.drop_items || []).map(di => di.product_id));
+        console.log('[Shop Debug] Product IDs from live drops:', liveDropItemIds);
+
+        if (liveDropItemIds.length === 0) {
+            itemsGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                    <h3>No items available right now</h3>
+                    <p>Check the upcoming drops below!</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Fetch available products in live drops with images
+        const { data: products, error: productsError } = await supabase
+            .from('products')
+            .select('*, product_images(storage_path, display_order)')
+            .in('id', liveDropItemIds)
+            .eq('available', true)
+            .order('created_at', { ascending: false });
+
+        console.log('[Shop Debug] Products query:', { products, productsError });
+
+        if (productsError) throw productsError;
+
+        if (!products || products.length === 0) {
+            itemsGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                    <h3>No items available right now</h3>
+                    <p>Check the upcoming drops below!</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Group items by drop for better display
+        const groupedByDrop = {};
+        products.forEach(product => {
+            // Find which drop this product belongs to
+            const drop = liveDrops.find(d =>
+                (d.drop_items || []).some(di => di.product_id === product.id)
+            );
+            if (drop) {
+                if (!groupedByDrop[drop.id]) {
+                    groupedByDrop[drop.id] = { drop, items: [] };
+                }
+                groupedByDrop[drop.id].items.push(product);
+            }
+        });
+
+        itemsGrid.innerHTML = '';
+
+        Object.values(groupedByDrop).forEach(({ drop, items }) => {
+            const dropHeader = document.createElement('div');
+            dropHeader.className = 'drop-header';
+            dropHeader.style.gridColumn = '1 / -1';
+            dropHeader.innerHTML = `
+                <h2 class="drop-name">${drop.name}</h2>
+                ${drop.description ? `<p class="drop-description">${drop.description}</p>` : ''}
+                <span class="live-badge">🔴 LIVE NOW</span>
+            `;
+            itemsGrid.appendChild(dropHeader);
+
+            items.forEach(item => {
+                const itemCard = document.createElement('div');
+                itemCard.className = 'item-card';
+                itemCard.dataset.itemId = item.id;
+
+                itemCard.innerHTML = createItemCardHTML(item);
+                itemsGrid.appendChild(itemCard);
+            });
+        });
+
+        // Also update cachedDrops for countdown
+        cachedDrops = liveDrops;
+        cachedDropsTimestamp = Date.now();
+    } catch (err) {
+        console.error('Failed to load shop inventory:', err);
         itemsGrid.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
-                <h3>No items available right now</h3>
-                <p>Check the upcoming drops below!</p>
+                <h3>Error loading inventory</h3>
+                <p>Please try again later.</p>
             </div>
         `;
-        return;
     }
-
-    // Group items by drop for better display
-    const groupedByDrop = {};
-    availableItems.forEach(item => {
-        const dropId = item.dropId;
-        if (!groupedByDrop[dropId]) {
-            groupedByDrop[dropId] = [];
-        }
-        groupedByDrop[dropId].push(item);
-    });
-
-    itemsGrid.innerHTML = '';
-
-    // Render items grouped by drop
-    Object.entries(groupedByDrop).forEach(([dropId, items]) => {
-        const drop = liveDrops.find(d => d.id === dropId);
-
-        // Add drop header
-        const dropHeader = document.createElement('div');
-        dropHeader.className = 'drop-header';
-        dropHeader.style.gridColumn = '1 / -1';
-        dropHeader.innerHTML = `
-            <h2 class="drop-name">${drop.name}</h2>
-            ${drop.description ? `<p class="drop-description">${drop.description}</p>` : ''}
-            <span class="live-badge">🔴 LIVE NOW</span>
-        `;
-        itemsGrid.appendChild(dropHeader);
-
-        // Add items
-        items.forEach(item => {
-            const itemCard = document.createElement('div');
-            itemCard.className = 'item-card';
-            itemCard.dataset.itemId = item.id;
-
-            itemCard.innerHTML = createItemCardHTML(item);
-            itemsGrid.appendChild(itemCard);
-        });
-    });
 }
 
 // Helper function to create item card HTML
 function createItemCardHTML(item) {
-    const images = item.images || (item.image ? [item.image] : []);
+    // Images come from product_images table (Supabase Storage URLs)
+    const images = (item.product_images || [])
+        .sort((a, b) => a.display_order - b.display_order)
+        .map(img => img.storage_path);
     const hasImages = images.length > 0;
+    const price = parseFloat(item.price) || 0;
 
     return `
         <div class="item-image" style="position: relative;">
@@ -1089,13 +1043,13 @@ function createItemCardHTML(item) {
                         </div>
                     ` : ''}
                 </div>` :
-              `<span class="placeholder">${item.category}</span>`}
+              `<span class="placeholder">${item.category || 'item'}</span>`}
         </div>
         <div class="item-details">
             <h3>${item.name}</h3>
-            <p class="item-description">${item.description.substring(0, 100)}${item.description.length > 100 ? '...' : ''}</p>
-            <p><small>Size: ${item.size || 'N/A'} | Condition: ${item.condition}</small></p>
-            <p class="item-price">$${item.price.toFixed(2)}</p>
+            <p class="item-description">${(item.description || '').substring(0, 100)}${(item.description || '').length > 100 ? '...' : ''}</p>
+            <p><small>Size: ${item.size || 'N/A'} | Condition: ${item.condition || 'N/A'}</small></p>
+            <p class="item-price">$${price.toFixed(2)}</p>
             <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
                 <button class="btn-secondary" onclick="addToCart('${item.id}')" style="flex: 1;">Add to Cart</button>
                 <button class="btn-primary" onclick="buyNow('${item.id}')" style="flex: 1;">Buy Now</button>
@@ -1104,104 +1058,79 @@ function createItemCardHTML(item) {
     `;
 }
 
-// Original version (for backward compatibility) - kept for syndicated listings
-function loadShopInventoryOld() {
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-    const availableItems = inventory.filter(item => item.available);
-    const itemsGrid = document.getElementById('availableItems');
-
-    if (availableItems.length === 0) {
-        itemsGrid.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
-                <h3>No items available right now</h3>
-                <p>Check back soon for new drops!</p>
-            </div>
-        `;
-        return;
-    }
-
-    itemsGrid.innerHTML = availableItems.map(item => {
-        // Handle both old (single image) and new (multiple images) format
-        const images = item.images || (item.image ? [item.image] : []);
-        const hasImages = images.length > 0;
-
-        return `
-        <div class="item-card" data-item-id="${item.id}">
-            <div class="item-image" style="position: relative;">
-                ${hasImages ?
-                    `<div class="image-carousel" data-item-id="${item.id}">
-                        ${images.map((img, idx) => `
-                            <img src="${img}"
-                                 alt="${item.name}"
-                                 class="carousel-image ${idx === 0 ? 'active' : ''}"
-                                 style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
-                        `).join('')}
-                        ${images.length > 1 ? `
-                            <button class="carousel-btn prev" onclick="prevImage(event, '${item.id}')" style="position:absolute;left:5px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.5rem;cursor:pointer;border-radius:3px;">‹</button>
-                            <button class="carousel-btn next" onclick="nextImage(event, '${item.id}')" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.5rem;cursor:pointer;border-radius:3px;">›</button>
-                            <div class="carousel-dots" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;">
-                                ${images.map((_, idx) => `<span class="dot ${idx === 0 ? 'active' : ''}" style="width:8px;height:8px;background:${idx === 0 ? 'var(--orange)' : 'rgba(255,255,255,0.5)'};border-radius:50%;display:inline-block;"></span>`).join('')}
-                            </div>
-                        ` : ''}
-                    </div>` :
-                  `<span class="placeholder">${item.category}</span>`}
-            </div>
-            <div class="item-details">
-                <h3>${item.name}</h3>
-                <p class="item-description">${item.description.substring(0, 100)}${item.description.length > 100 ? '...' : ''}</p>
-                <p><small>Size: ${item.size || 'N/A'} | Condition: ${item.condition}</small></p>
-                <p class="item-price">$${item.price.toFixed(2)}</p>
-                <button class="btn-primary" onclick="purchaseItem('${item.id}')">Purchase</button>
-            </div>
-        </div>
-        `;
-    }).join('');
-}
-
-// Shopping Cart
+// Shopping Cart (stays in localStorage)
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 
-function addToCart(itemId) {
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-    const item = inventory.find(i => i.id === itemId);
+async function addToCart(itemId) {
+    // Fetch product from Supabase to verify availability
+    const { data: item, error } = await supabase
+        .from('products')
+        .select('*, product_images(storage_path, display_order)')
+        .eq('id', itemId)
+        .single();
 
-    if (!item || !item.available) {
+    if (error || !item || !item.available) {
         alert('Sorry, this item is no longer available.');
         return;
     }
 
-    // Check if item already in cart
     if (cart.find(i => i.id === itemId)) {
         alert('This item is already in your cart!');
         return;
     }
 
-    // Add to cart
-    cart.push(item);
+    // Store a simplified version in cart
+    const images = (item.product_images || [])
+        .sort((a, b) => a.display_order - b.display_order)
+        .map(img => img.storage_path);
+
+    cart.push({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        price: parseFloat(item.price) || 0,
+        size: item.size,
+        condition: item.condition,
+        category: item.category,
+        images: images
+    });
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
 
-    // Show success message
     alert(`✓ "${item.name}" added to cart!`);
 }
 
-function buyNow(itemId) {
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-    const item = inventory.find(i => i.id === itemId);
+async function buyNow(itemId) {
+    const { data: item, error } = await supabase
+        .from('products')
+        .select('*, product_images(storage_path, display_order)')
+        .eq('id', itemId)
+        .single();
 
-    if (!item || !item.available) {
+    if (error || !item || !item.available) {
         alert('Sorry, this item is no longer available.');
         return;
     }
 
-    // Check if item already in cart
     if (!cart.find(i => i.id === itemId)) {
-        cart.push(item);
+        const images = (item.product_images || [])
+            .sort((a, b) => a.display_order - b.display_order)
+            .map(img => img.storage_path);
+
+        cart.push({
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            price: parseFloat(item.price) || 0,
+            size: item.size,
+            condition: item.condition,
+            category: item.category,
+            images: images
+        });
         localStorage.setItem('cart', JSON.stringify(cart));
         updateCartCount();
     }
 
-    // Go to checkout page immediately
     goToCheckout();
 }
 
@@ -1209,6 +1138,14 @@ function removeFromCart(itemId) {
     cart = cart.filter(i => i.id !== itemId);
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
+    // Refresh the cart sidebar if it's open
+    const sidebar = document.getElementById('cartSidebar');
+    if (sidebar) {
+        closeCartModal();
+        if (cart.length > 0) {
+            setTimeout(() => showCartModal(), 310);
+        }
+    }
 }
 
 function viewCart() {
@@ -1231,13 +1168,11 @@ function updateCartCount() {
 function showCartModal() {
     const total = cart.reduce((sum, item) => sum + item.price, 0);
 
-    // Create overlay
     const overlay = document.createElement('div');
     overlay.id = 'cartOverlay';
     overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; opacity: 0; transition: opacity 0.3s;';
     overlay.onclick = closeCartModal;
 
-    // Create sidebar
     const sidebar = document.createElement('div');
     sidebar.id = 'cartSidebar';
     sidebar.style.cssText = `
@@ -1278,8 +1213,9 @@ function showCartModal() {
                             <p style="color: #666; font-size: 0.85rem; margin: 0.25rem 0;">Size: ${item.size || 'N/A'}</p>
                             <p style="color: var(--orange); font-weight: 600; margin: 0.5rem 0 0 0; font-size: 1.1rem;">$${item.price.toFixed(2)}</p>
                         </div>
-                        <button onclick="removeFromCart('${item.id}'); closeCartModal(); viewCart();"
-                                style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--danger); color: white; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; line-height: 1; display: flex; align-items: center; justify-content: center;">
+                        <button onclick="removeFromCart('${item.id}')"
+                                style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--danger); color: white; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; line-height: 1; display: flex; align-items: center; justify-content: center;"
+                                title="Remove from cart">
                             ×
                         </button>
                     </div>
@@ -1306,7 +1242,6 @@ function showCartModal() {
     document.body.appendChild(overlay);
     document.body.appendChild(sidebar);
 
-    // Trigger animation
     setTimeout(() => {
         overlay.style.opacity = '1';
         sidebar.style.right = '0';
@@ -1338,14 +1273,11 @@ function goToCheckout() {
 
     closeCartModal();
 
-    // Navigate to checkout page
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById('checkout').classList.add('active');
 
-    // Update nav active state
     document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
 
-    // Load checkout content
     loadCheckoutPage();
 }
 
@@ -1362,7 +1294,7 @@ function initializeStripe() {
 function loadCheckoutPage() {
     const checkoutContent = document.getElementById('checkoutContent');
     const total = cart.reduce((sum, item) => sum + item.price, 0);
-    const tax = total * 0.0575; // 5.75% VA sales tax
+    const tax = total * 0.0575;
     const grandTotal = total + tax;
 
     checkoutContent.innerHTML = `
@@ -1409,14 +1341,12 @@ function loadCheckoutPage() {
                 <h2 style="font-family: 'Bebas Neue', cursive; color: var(--maroon); margin-bottom: 1.5rem; font-size: 2rem;">Payment Details</h2>
 
                 <form id="payment-form" style="background: white; padding: 2rem; border-radius: 12px; border: 2px solid var(--light-beige);">
-                    <!-- Contact Info -->
                     <div style="margin-bottom: 1.5rem;">
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">Email *</label>
                         <input type="email" id="customer-email" required
                                style="width: 100%; padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; font-size: 1rem;">
                     </div>
 
-                    <!-- Shipping Address -->
                     <div style="margin-bottom: 1.5rem;">
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">Full Name *</label>
                         <input type="text" id="customer-name" required
@@ -1473,16 +1403,13 @@ function loadCheckoutPage() {
                         </div>
                     </div>
 
-                    <!-- Stripe Card Element -->
                     <div style="margin-bottom: 1.5rem;">
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">Card Details *</label>
                         <div id="card-element" style="padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; background: white;">
-                            <!-- Stripe Card Element will be inserted here -->
                         </div>
                         <div id="card-errors" style="color: var(--danger); margin-top: 0.5rem; font-size: 0.9rem;"></div>
                     </div>
 
-                    <!-- Submit Button -->
                     <button type="submit" id="submit-button"
                             style="width: 100%; background: var(--orange); color: white; padding: 1.2rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1.2rem; font-family: 'Bebas Neue', cursive; letter-spacing: 1px;">
                         Pay $${grandTotal.toFixed(2)}
@@ -1508,14 +1435,11 @@ function loadCheckoutPage() {
         </div>
     `;
 
-    // Initialize Stripe Elements
     setupStripeCheckout(grandTotal);
 
-    // Initialize Google Places Autocomplete (wait for Google Maps to load)
     if (typeof google !== 'undefined' && google.maps && google.maps.places) {
         initializeAddressAutocomplete();
     } else {
-        // Wait for Google Maps to load
         const waitForGoogle = setInterval(() => {
             if (typeof google !== 'undefined' && google.maps && google.maps.places) {
                 clearInterval(waitForGoogle);
@@ -1523,11 +1447,10 @@ function loadCheckoutPage() {
             }
         }, 100);
 
-        // Give up after 5 seconds
         setTimeout(() => {
             clearInterval(waitForGoogle);
             if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-                initializeAddressAutocomplete(); // Will show the "not configured" message
+                initializeAddressAutocomplete();
             }
         }, 5000);
     }
@@ -1568,7 +1491,6 @@ function setupStripeCheckout(amount) {
 
     cardElement.mount('#card-element');
 
-    // Handle real-time validation errors
     cardElement.on('change', function(event) {
         const displayError = document.getElementById('card-errors');
         if (event.error) {
@@ -1578,7 +1500,6 @@ function setupStripeCheckout(amount) {
         }
     });
 
-    // Handle form submission
     const form = document.getElementById('payment-form');
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
@@ -1588,11 +1509,6 @@ function setupStripeCheckout(amount) {
         submitButton.textContent = 'Processing...';
 
         try {
-            // In a real implementation, you would:
-            // 1. Create a PaymentIntent on your server
-            // 2. Pass the client_secret to confirmCardPayment
-            // For now, we'll simulate this with a direct charge
-
             const {paymentMethod, error} = await stripe.createPaymentMethod({
                 type: 'card',
                 card: cardElement,
@@ -1607,8 +1523,6 @@ function setupStripeCheckout(amount) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Pay $' + amount.toFixed(2);
             } else {
-                // Payment method created successfully
-                // In production, send paymentMethod.id to your server
                 processPayment(paymentMethod.id, amount);
             }
         } catch (err) {
@@ -1622,127 +1536,72 @@ function setupStripeCheckout(amount) {
 // Google Places Autocomplete for address validation
 function initializeAddressAutocomplete() {
     const streetInput = document.getElementById('shipping-street');
-    if (!streetInput) {
-        console.error('Street input field not found');
-        return;
-    }
+    if (!streetInput) return;
 
-    console.log('=== Google Places Autocomplete Debug ===');
-    console.log('Street input found:', streetInput);
-    console.log('Google object exists:', typeof google !== 'undefined');
-    console.log('Google Maps exists:', typeof google !== 'undefined' && google.maps);
-    console.log('Google Places exists:', typeof google !== 'undefined' && google.maps && google.maps.places);
-
-    // Check if Google Maps API is loaded
     if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
         console.warn('Google Places API not loaded. Address autocomplete disabled.');
-        console.log('localStorage googlePlacesSettings:', localStorage.getItem('googlePlacesSettings'));
-
-        // Show a helpful message below the street input
         const helpText = document.createElement('small');
         helpText.style.cssText = 'display: block; margin-top: 0.5rem; color: #dc3545; font-size: 0.85rem;';
-        helpText.innerHTML = '⚠️ Address autocomplete not available - check browser console for errors';
+        helpText.innerHTML = '⚠️ Address autocomplete not available';
         streetInput.parentElement.appendChild(helpText);
         return;
     }
 
     try {
-        console.log('✓ Google Places API loaded successfully');
-        console.log('Creating autocomplete instance...');
-
-        // Remove any existing pac-container (autocomplete dropdown) on error
         const existingContainers = document.querySelectorAll('.pac-container');
         existingContainers.forEach(container => container.remove());
 
-        // Create autocomplete instance with error handling
         const autocomplete = new google.maps.places.Autocomplete(streetInput, {
             types: ['address'],
             componentRestrictions: { country: 'us' },
             fields: ['address_components', 'formatted_address', 'geometry']
         });
 
-        console.log('✓ Autocomplete instance created:', autocomplete);
-
-        // Check for Google Maps errors after a short delay
         setTimeout(() => {
             const errorOverlay = document.querySelector('.dismissible-error-overlay, .gm-err-container');
             if (errorOverlay) {
-                console.error('❌ Google Maps showing error overlay - disabling autocomplete');
-                // Remove the autocomplete to prevent blocking
                 google.maps.event.clearInstanceListeners(streetInput);
                 errorOverlay.remove();
-
                 const helpText = document.createElement('small');
                 helpText.style.cssText = 'display: block; margin-top: 0.5rem; color: #dc3545; font-size: 0.85rem;';
-                helpText.innerHTML = '⚠️ Address autocomplete error - please type address manually. Check console for details.';
+                helpText.innerHTML = '⚠️ Address autocomplete error - please type address manually.';
                 streetInput.parentElement.appendChild(helpText);
                 return;
             }
         }, 1000);
 
-        // Add visual indicator that autocomplete is active
         const helpText = document.createElement('small');
         helpText.style.cssText = 'display: block; margin-top: 0.5rem; color: #28a745; font-size: 0.85rem;';
         helpText.innerHTML = '✓ Address suggestions enabled - start typing to see matches';
         streetInput.parentElement.appendChild(helpText);
 
-        // Handle place selection
         autocomplete.addListener('place_changed', function() {
             const place = autocomplete.getPlace();
 
-            console.log('=== Place Selected ===');
-            console.log('Place object:', place);
+            if (!place.address_components) return;
 
-            if (!place.address_components) {
-                console.warn('No address components found in selected place');
-                return;
-            }
-
-            // Extract address components
             let streetNumber = '';
             let route = '';
             let city = '';
             let state = '';
             let zip = '';
 
-            console.log('Extracting address components...');
             for (const component of place.address_components) {
                 const types = component.types;
-                console.log('Component:', component.long_name, '- Types:', types);
-
-                if (types.includes('street_number')) {
-                    streetNumber = component.long_name;
-                }
-                if (types.includes('route')) {
-                    route = component.long_name;
-                }
-                if (types.includes('locality')) {
-                    city = component.long_name;
-                }
-                if (types.includes('administrative_area_level_1')) {
-                    state = component.short_name;
-                }
-                if (types.includes('postal_code')) {
-                    zip = component.long_name;
-                }
+                if (types.includes('street_number')) streetNumber = component.long_name;
+                if (types.includes('route')) route = component.long_name;
+                if (types.includes('locality')) city = component.long_name;
+                if (types.includes('administrative_area_level_1')) state = component.short_name;
+                if (types.includes('postal_code')) zip = component.long_name;
             }
 
-            console.log('Extracted values:', { streetNumber, route, city, state, zip });
-
-            // Auto-fill the form fields
             document.getElementById('shipping-street').value = `${streetNumber} ${route}`.trim();
             document.getElementById('shipping-city').value = city;
             document.getElementById('shipping-state').value = state;
             document.getElementById('shipping-zip').value = zip;
-
-            console.log('✓ Address fields auto-filled successfully');
         });
-
-        console.log('✓ Google Places Autocomplete initialized successfully');
     } catch (error) {
-        console.error('❌ Error initializing autocomplete:', error);
-
-        // Show error message
+        console.error('Error initializing autocomplete:', error);
         const helpText = document.createElement('small');
         helpText.style.cssText = 'display: block; margin-top: 0.5rem; color: #dc3545; font-size: 0.85rem;';
         helpText.innerHTML = `⚠️ Error: ${error.message}`;
@@ -1751,82 +1610,99 @@ function initializeAddressAutocomplete() {
 }
 
 async function processPayment(paymentMethodId, amount) {
-    // In production, this would call your server to create a charge
-    // For now, we'll simulate a successful payment
-
-    // Collect shipping address from separate fields
     const shippingStreet = document.getElementById('shipping-street').value;
     const shippingApt = document.getElementById('shipping-apt').value;
     const shippingCity = document.getElementById('shipping-city').value;
     const shippingState = document.getElementById('shipping-state').value;
     const shippingZip = document.getElementById('shipping-zip').value;
 
-    const order = {
-        id: Date.now().toString(),
-        date: new Date().toISOString(),
-        customerName: document.getElementById('customer-name').value,
-        customerEmail: document.getElementById('customer-email').value,
+    const orderId = Date.now().toString();
+    const customerName = document.getElementById('customer-name').value;
+    const customerEmail = document.getElementById('customer-email').value;
+    const fullAddress = `${shippingStreet}${shippingApt ? ', ' + shippingApt : ''}, ${shippingCity}, ${shippingState} ${shippingZip}`;
+
+    // Build order for shipping label
+    const orderForShipping = {
+        customerName,
+        customerEmail,
         shippingAddress: {
             street: shippingStreet,
             apt: shippingApt,
             city: shippingCity,
             state: shippingState,
-            zip: shippingZip,
-            fullAddress: `${shippingStreet}${shippingApt ? ', ' + shippingApt : ''}, ${shippingCity}, ${shippingState} ${shippingZip}`
-        },
-        paymentMethod: 'stripe',
-        paymentMethodId: paymentMethodId,
-        items: cart.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price
-        })),
-        total: amount,
-        status: 'paid'
+            zip: shippingZip
+        }
     };
 
     // Create shipping label via Shippo
-    console.log('Creating shipping label...');
-    const shippingLabel = await createShippingLabel(order);
+    const shippingLabel = await createShippingLabel(orderForShipping);
 
-    if (shippingLabel) {
-        console.log('Shipping label created successfully!', shippingLabel);
-        order.shipping = {
-            label_url: shippingLabel.label_url,
-            tracking_number: shippingLabel.tracking_number,
-            tracking_url: shippingLabel.tracking_url,
-            carrier: shippingLabel.carrier,
-            service: shippingLabel.service,
-            cost: shippingLabel.cost,
-            transaction_id: shippingLabel.transaction_id,
-            created_at: new Date().toISOString()
-        };
-    } else {
-        console.warn('Shipping label creation failed - order will be saved without label');
-        order.shipping = null;
+    // Insert order into Supabase
+    const { error: orderError } = await supabase
+        .from('orders')
+        .insert({
+            id: orderId,
+            customer_name: customerName,
+            customer_email: customerEmail,
+            shipping_street: shippingStreet,
+            shipping_apt: shippingApt,
+            shipping_city: shippingCity,
+            shipping_state: shippingState,
+            shipping_zip: shippingZip,
+            shipping_full_address: fullAddress,
+            payment_method: 'stripe',
+            payment_method_id: paymentMethodId,
+            total: amount,
+            status: 'paid',
+            shipping_label_url: shippingLabel ? shippingLabel.label_url : null,
+            shipping_tracking_number: shippingLabel ? shippingLabel.tracking_number : null,
+            shipping_tracking_url: shippingLabel ? shippingLabel.tracking_url : null,
+            shipping_carrier: shippingLabel ? shippingLabel.carrier : null,
+            shipping_service: shippingLabel ? shippingLabel.service : null,
+            shipping_cost: shippingLabel ? parseFloat(shippingLabel.cost) : null,
+            shipping_transaction_id: shippingLabel ? shippingLabel.transaction_id : null,
+            shipping_created_at: shippingLabel ? new Date().toISOString() : null
+        });
+
+    if (orderError) {
+        console.error('Failed to save order:', orderError);
+        alert('Order processing error. Please contact support.');
+        return;
     }
 
-    // Save order
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    orders.push(order);
-    localStorage.setItem('orders', JSON.stringify(orders));
+    // Insert order items
+    const orderItems = cart.map(item => ({
+        order_id: orderId,
+        product_id: item.id,
+        name: item.name,
+        price: item.price
+    }));
 
-    // Mark items as sold
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-    cart.forEach(cartItem => {
-        const item = inventory.find(i => i.id === cartItem.id);
-        if (item) {
-            item.available = false;
-        }
-    });
-    localStorage.setItem('inventory', JSON.stringify(inventory));
+    await supabase.from('order_items').insert(orderItems);
+
+    // Mark products as sold
+    const purchasedIds = cart.map(item => item.id);
+    await supabase
+        .from('products')
+        .update({ available: false })
+        .in('id', purchasedIds);
 
     // Clear cart
     cart = [];
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
 
-    // Show success
+    // Show success with shipping info
+    const order = {
+        id: orderId,
+        customerEmail,
+        shipping: shippingLabel ? {
+            tracking_number: shippingLabel.tracking_number,
+            tracking_url: shippingLabel.tracking_url,
+            carrier: shippingLabel.carrier,
+            service: shippingLabel.service
+        } : null
+    };
     showOrderConfirmation(order);
 }
 
@@ -1872,7 +1748,6 @@ function showOrderConfirmation(order) {
         </div>
     `;
 
-    // Refresh shop to remove sold items
     loadShopInventory();
 }
 
@@ -1959,76 +1834,82 @@ function closeCheckout() {
     updateCartCount();
 }
 
-function completeOrder() {
-    const order = {
-        id: Date.now().toString(),
-        date: new Date().toISOString(),
-        customerName: document.getElementById('customerName').value,
-        customerEmail: document.getElementById('customerEmail').value,
-        shippingAddress: document.getElementById('shippingAddress').value,
-        paymentMethod: document.getElementById('paymentMethod').value,
-        items: cart.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price
-        })),
-        total: cart.reduce((sum, item) => sum + item.price, 0),
-        status: 'pending'
-    };
+async function completeOrder() {
+    const orderId = Date.now().toString();
+    const customerName = document.getElementById('customerName').value;
+    const customerEmail = document.getElementById('customerEmail').value;
+    const shippingAddress = document.getElementById('shippingAddress').value;
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const total = cart.reduce((sum, item) => sum + item.price, 0);
 
-    // Save order
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    orders.push(order);
-    localStorage.setItem('orders', JSON.stringify(orders));
+    // Insert order into Supabase
+    const { error: orderError } = await supabase
+        .from('orders')
+        .insert({
+            id: orderId,
+            customer_name: customerName,
+            customer_email: customerEmail,
+            shipping_full_address: shippingAddress,
+            payment_method: paymentMethod,
+            total: total,
+            status: 'pending'
+        });
 
-    // Mark items as sold
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-    cart.forEach(cartItem => {
-        const item = inventory.find(i => i.id === cartItem.id);
-        if (item) {
-            item.available = false;
-        }
-    });
-    localStorage.setItem('inventory', JSON.stringify(inventory));
+    if (orderError) {
+        console.error('Failed to save order:', orderError);
+        alert('Order processing error. Please try again.');
+        return;
+    }
+
+    // Insert order items
+    const orderItems = cart.map(item => ({
+        order_id: orderId,
+        product_id: item.id,
+        name: item.name,
+        price: item.price
+    }));
+
+    await supabase.from('order_items').insert(orderItems);
+
+    // Mark products as sold
+    const purchasedIds = cart.map(item => item.id);
+    await supabase
+        .from('products')
+        .update({ available: false })
+        .in('id', purchasedIds);
 
     // Show confirmation
-    alert(`Order placed successfully! Order #${order.id.substring(0, 8)}\n\nWe'll send payment instructions to ${order.customerEmail}`);
+    alert(`Order placed successfully! Order #${orderId.substring(0, 8)}\n\nWe'll send payment instructions to ${customerEmail}`);
 
     closeCheckout();
-    loadShopInventory(); // Refresh shop
+    loadShopInventory();
 }
 
-// Load syndicated listings from Worker KV (fallback to localStorage)
+// Load syndicated listings from Supabase
 async function loadSyndicatedListingsToFrontend() {
-    const workerBase = WORKER_URL.replace(/\/$/, '');
-    let listings;
-
     try {
-        const resp = await fetch(`${workerBase}/syndicated-listings`);
-        if (resp.ok) {
-            listings = await resp.json();
+        const { data: listings, error } = await supabase
+            .from('syndicated_listings')
+            .select('*')
+            .eq('active', true);
+
+        if (error) throw error;
+
+        if (!listings || listings.length === 0) {
+            return [];
         }
-    } catch (e) {
-        console.warn('Could not fetch syndicated listings from Worker, falling back to localStorage:', e);
-    }
 
-    if (!listings) {
-        listings = JSON.parse(localStorage.getItem('syndicatedListings') || '[]');
-    }
-
-    const activeListings = (listings || []).filter(l => l.active);
-
-    if (activeListings.length === 0) {
+        return listings.map(listing => ({
+            title: listing.title,
+            platform: listing.platform,
+            price: listing.price,
+            link: listing.link,
+            image: listing.image_url
+        }));
+    } catch (err) {
+        console.error('Failed to load syndicated listings:', err);
         return [];
     }
-
-    return activeListings.map(listing => ({
-        title: listing.title,
-        platform: listing.platform,
-        price: listing.price,
-        link: listing.link,
-        image: listing.image
-    }));
 }
 
 // Image Carousel Functions
@@ -2044,16 +1925,13 @@ function nextImage(event, itemId) {
 
     if (!currentImageIndex[itemId]) currentImageIndex[itemId] = 0;
 
-    // Hide current image
     images[currentImageIndex[itemId]].style.opacity = '0';
     if (dots[currentImageIndex[itemId]]) {
         dots[currentImageIndex[itemId]].style.background = 'rgba(255,255,255,0.5)';
     }
 
-    // Move to next image
     currentImageIndex[itemId] = (currentImageIndex[itemId] + 1) % images.length;
 
-    // Show next image
     images[currentImageIndex[itemId]].style.opacity = '1';
     if (dots[currentImageIndex[itemId]]) {
         dots[currentImageIndex[itemId]].style.background = 'var(--orange)';
@@ -2070,16 +1948,13 @@ function prevImage(event, itemId) {
 
     if (!currentImageIndex[itemId]) currentImageIndex[itemId] = 0;
 
-    // Hide current image
     images[currentImageIndex[itemId]].style.opacity = '0';
     if (dots[currentImageIndex[itemId]]) {
         dots[currentImageIndex[itemId]].style.background = 'rgba(255,255,255,0.5)';
     }
 
-    // Move to previous image
     currentImageIndex[itemId] = (currentImageIndex[itemId] - 1 + images.length) % images.length;
 
-    // Show previous image
     images[currentImageIndex[itemId]].style.opacity = '1';
     if (dots[currentImageIndex[itemId]]) {
         dots[currentImageIndex[itemId]].style.background = 'var(--orange)';

@@ -178,6 +178,8 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script>
         let currentSubmission = null;
 
@@ -186,7 +188,6 @@
         const submissionId = urlParams.get('id');
 
         if (!submissionId) {
-            // Show manual ID entry form instead of error
             document.getElementById('loadingView').style.display = 'none';
             document.getElementById('manualIdEntry').style.display = 'block';
         } else {
@@ -204,72 +205,131 @@
             setTimeout(() => loadSubmission(id), 500);
         }
 
-        function loadSubmission(id) {
-            const submissions = JSON.parse(localStorage.getItem('sellerSubmissions') || '[]');
-            const submission = submissions.find(s => s.id === id);
+        async function loadSubmission(id) {
+            try {
+                const { data: submission, error } = await supabase
+                    .from('seller_submissions')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
 
-            if (!submission) {
-                showError('Submission not found. This link may have expired.');
-                return;
-            }
-
-            if (submission.status !== 'pending_seller') {
-                if (submission.status === 'approved') {
-                    showError('This offer has already been accepted.');
-                } else if (submission.status === 'rejected') {
-                    showError('This submission has been declined.');
-                } else {
-                    showError('This offer is no longer available.');
+                if (error || !submission) {
+                    showError('Submission not found. This link may have expired.');
+                    return;
                 }
-                return;
+
+                if (submission.status !== 'pending_seller') {
+                    if (submission.status === 'approved') {
+                        showError('This offer has already been accepted.');
+                    } else if (submission.status === 'rejected') {
+                        showError('This submission has been declined.');
+                    } else {
+                        showError('This offer is no longer available.');
+                    }
+                    return;
+                }
+
+                currentSubmission = submission;
+
+                document.getElementById('itemType').textContent = submission.item_type;
+                document.getElementById('itemCondition').textContent = submission.condition;
+                document.getElementById('itemEra').textContent = submission.era || 'Not specified';
+                document.getElementById('offerPrice').textContent = '$' + parseFloat(submission.admin_price).toFixed(2);
+                document.getElementById('contactEmail').textContent = submission.email;
+
+                document.getElementById('loadingView').style.display = 'none';
+                document.getElementById('approvalView').style.display = 'block';
+            } catch (e) {
+                console.error('Error loading submission:', e);
+                showError('Something went wrong. Please try again.');
             }
-
-            currentSubmission = submission;
-
-            // Populate submission details
-            document.getElementById('itemType').textContent = submission.itemType;
-            document.getElementById('itemCondition').textContent = submission.condition;
-            document.getElementById('itemEra').textContent = submission.era || 'Not specified';
-            document.getElementById('offerPrice').textContent = '$' + submission.adminPrice.toFixed(2);
-            document.getElementById('contactEmail').textContent = submission.email;
-
-            // Show approval view
-            document.getElementById('loadingView').style.display = 'none';
-            document.getElementById('approvalView').style.display = 'block';
         }
 
-        function acceptOffer() {
-            if (!confirm('Accept this offer of $' + currentSubmission.adminPrice.toFixed(2) + '?')) {
+        async function acceptOffer() {
+            if (!confirm('Accept this offer of $' + parseFloat(currentSubmission.admin_price).toFixed(2) + '?')) {
                 return;
             }
 
-            // Call the admin.js function to handle approval
-            const result = sellerApproveSubmission(currentSubmission.id);
+            try {
+                // Update submission status to approved
+                const { error: updateError } = await supabase
+                    .from('seller_submissions')
+                    .update({
+                        status: 'approved',
+                        seller_approved_at: new Date().toISOString()
+                    })
+                    .eq('id', currentSubmission.id);
 
-            if (result.success) {
+                if (updateError) throw updateError;
+
+                // Fetch submission images for the new product
+                const { data: images } = await supabase
+                    .from('submission_images')
+                    .select('storage_path')
+                    .eq('submission_id', currentSubmission.id)
+                    .order('display_order', { ascending: true });
+
+                // Auto-create product from submission
+                const productId = 'sub_' + Date.now().toString();
+                const { error: productError } = await supabase
+                    .from('products')
+                    .insert({
+                        id: productId,
+                        name: `${currentSubmission.item_type} - ${currentSubmission.era || 'Vintage'} VT`,
+                        description: currentSubmission.description,
+                        price: 0,
+                        cost: parseFloat(currentSubmission.admin_price),
+                        category: currentSubmission.item_type,
+                        size: 'TBD',
+                        condition: currentSubmission.condition,
+                        available: true,
+                        submission_id: currentSubmission.id
+                    });
+
+                if (productError) {
+                    console.error('Failed to create product:', productError);
+                }
+
+                // Copy submission images to product images
+                if (images && images.length > 0) {
+                    const productImages = images.map((img, i) => ({
+                        product_id: productId,
+                        storage_path: img.storage_path,
+                        display_order: i
+                    }));
+                    await supabase.from('product_images').insert(productImages);
+                }
+
                 document.getElementById('approvalView').style.display = 'none';
                 document.getElementById('successView').style.display = 'block';
-            } else {
-                showError(result.message);
+            } catch (e) {
+                console.error('Accept error:', e);
+                showError('Failed to accept offer. Please try again.');
             }
         }
 
-        function declineOffer() {
+        async function declineOffer() {
             if (!confirm('Are you sure you want to decline this offer?')) {
                 return;
             }
 
-            const submissions = JSON.parse(localStorage.getItem('sellerSubmissions') || '[]');
-            const submission = submissions.find(s => s.id === currentSubmission.id);
+            try {
+                const { error } = await supabase
+                    .from('seller_submissions')
+                    .update({
+                        status: 'rejected',
+                        admin_notes: 'Declined by seller',
+                        reviewed_at: new Date().toISOString()
+                    })
+                    .eq('id', currentSubmission.id);
 
-            if (submission) {
-                submission.status = 'rejected';
-                submission.adminNotes = 'Declined by seller';
-                submission.reviewedAt = new Date().toISOString();
-                localStorage.setItem('sellerSubmissions', JSON.stringify(submissions));
+                if (error) throw error;
 
                 document.getElementById('approvalView').style.display = 'none';
                 document.getElementById('declinedView').style.display = 'block';
+            } catch (e) {
+                console.error('Decline error:', e);
+                showError('Failed to decline offer. Please try again.');
             }
         }
 
@@ -282,53 +342,6 @@
         function showManualEntry() {
             document.getElementById('errorView').style.display = 'none';
             document.getElementById('manualIdEntry').style.display = 'block';
-        }
-
-        // Import sellerApproveSubmission function from admin.js
-        function sellerApproveSubmission(submissionId) {
-            const submissions = JSON.parse(localStorage.getItem('sellerSubmissions') || '[]');
-            const submission = submissions.find(s => s.id === submissionId);
-
-            if (!submission) {
-                return { success: false, message: 'Submission not found' };
-            }
-
-            if (submission.status !== 'pending_seller') {
-                return { success: false, message: 'This submission is no longer pending approval' };
-            }
-
-            // Update submission status
-            submission.status = 'approved';
-            submission.sellerApprovedAt = new Date().toISOString();
-            localStorage.setItem('sellerSubmissions', JSON.stringify(submissions));
-
-            // Auto-create inventory item
-            const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-
-            const newItem = {
-                id: 'sub_' + Date.now().toString(),
-                name: `${submission.itemType} - ${submission.era || 'Vintage'} VT`,
-                description: submission.description,
-                price: 0, // Admin will set retail price later
-                cost: submission.adminPrice, // What admin pays the seller
-                category: submission.itemType,
-                size: 'TBD', // Admin will update
-                condition: submission.condition,
-                images: [], // Admin will add photos later
-                available: true,
-                dropId: null, // Unassigned
-                createdAt: new Date().toISOString(),
-                submissionId: submissionId // Link back to original submission
-            };
-
-            inventory.push(newItem);
-            localStorage.setItem('inventory', JSON.stringify(inventory));
-
-            return {
-                success: true,
-                message: 'Thank you! Your item has been approved. We will contact you shortly to arrange pickup/shipping.',
-                itemId: newItem.id
-            };
         }
     </script>
 </body>
