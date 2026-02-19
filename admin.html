@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
     <script src="supabase-config.js"></script>
 </head>
 <body>
@@ -822,6 +824,20 @@
                     <button class="btn-secondary" onclick="prevDropStep(2)">← Back</button>
                     <button class="btn-primary" onclick="saveDrop()" id="btnSaveDrop">Create Drop</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CROP MODAL -->
+    <div id="cropModal" class="crop-modal">
+        <div class="crop-modal-content">
+            <h2>Crop Image <span id="cropCounter"></span></h2>
+            <div class="crop-container">
+                <img id="cropImage" src="" alt="Crop preview">
+            </div>
+            <div class="crop-actions">
+                <button type="button" class="btn-secondary" id="cropSkipBtn">Skip (Use Original)</button>
+                <button type="button" class="btn-primary" id="cropSaveBtn">Crop & Save</button>
             </div>
         </div>
     </div>

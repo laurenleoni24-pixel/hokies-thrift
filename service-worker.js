@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hokies-thrift-v3';
+const CACHE_NAME = 'hokies-thrift-v4';
 const urlsToCache = [
   '/',
   '/index.html',

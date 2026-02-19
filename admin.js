@@ -156,6 +156,100 @@ async function loadDashboardData() {
 
 let uploadedImages = []; // File objects for new item creation
 
+// ==========================================
+// IMAGE CROP SYSTEM
+// ==========================================
+
+let cropQueue = [];
+let cropIndex = 0;
+let cropperInstance = null;
+let cropCallback = null;
+let croppedResults = [];
+
+function openCropModal(files, callback) {
+    cropQueue = Array.from(files).slice(0, 5);
+    cropIndex = 0;
+    cropCallback = callback;
+    croppedResults = [];
+    document.getElementById('cropModal').classList.add('active');
+    showNextCropImage();
+}
+
+function showNextCropImage() {
+    if (cropIndex >= cropQueue.length) {
+        closeCropModal();
+        if (cropCallback) cropCallback(croppedResults);
+        return;
+    }
+
+    const counterEl = document.getElementById('cropCounter');
+    if (cropQueue.length > 1) {
+        counterEl.textContent = `(${cropIndex + 1} of ${cropQueue.length})`;
+    } else {
+        counterEl.textContent = '';
+    }
+
+    const file = cropQueue[cropIndex];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const imgEl = document.getElementById('cropImage');
+        imgEl.src = e.target.result;
+
+        if (cropperInstance) {
+            cropperInstance.destroy();
+            cropperInstance = null;
+        }
+
+        cropperInstance = new Cropper(imgEl, {
+            aspectRatio: 1,
+            viewMode: 1,
+            dragMode: 'move',
+            autoCropArea: 0.9,
+            responsive: true,
+            restore: false,
+            guides: true,
+            center: true,
+            highlight: false,
+            background: false,
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
+function closeCropModal() {
+    document.getElementById('cropModal').classList.remove('active');
+    if (cropperInstance) {
+        cropperInstance.destroy();
+        cropperInstance = null;
+    }
+    cropQueue = [];
+    cropIndex = 0;
+}
+
+// Crop & Save button
+document.getElementById('cropSaveBtn').addEventListener('click', function() {
+    if (!cropperInstance) return;
+    const canvas = cropperInstance.getCroppedCanvas({
+        width: 1200,
+        height: 1200,
+        imageSmoothingQuality: 'high'
+    });
+    canvas.toBlob(function(blob) {
+        const originalFile = cropQueue[cropIndex];
+        const croppedFile = new File([blob], originalFile.name, { type: 'image/jpeg' });
+        croppedResults.push(croppedFile);
+        cropIndex++;
+        showNextCropImage();
+    }, 'image/jpeg', 0.92);
+});
+
+// Skip button — keep original file
+document.getElementById('cropSkipBtn').addEventListener('click', function() {
+    croppedResults.push(cropQueue[cropIndex]);
+    cropIndex++;
+    showNextCropImage();
+});
+
 function openDropModal() {
     document.getElementById('dropModal').classList.add('active');
     document.getElementById('imagePreview').innerHTML = '';
@@ -169,32 +263,37 @@ function closeDropModal() {
     uploadedImages = [];
 }
 
-// Image preview handler
+// Image preview handler — routes through crop modal
 document.getElementById('itemImages').addEventListener('change', function(e) {
     const files = e.target.files;
-    const preview = document.getElementById('imagePreview');
-    preview.innerHTML = '';
-    uploadedImages = [];
+    if (!files || files.length === 0) return;
 
     if (files.length > 5) alert('Maximum 5 images allowed. Only first 5 will be used.');
 
     const fileArray = Array.from(files).slice(0, 5);
-    fileArray.forEach((file, index) => {
-        uploadedImages.push({ file, index });
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const container = document.createElement('div');
-            container.className = 'image-preview-item';
-            container.style.position = 'relative';
-            container.style.display = 'inline-block';
 
-            const imgElement = document.createElement('img');
-            imgElement.src = event.target.result;
-            imgElement.style.cssText = 'width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--gray-300);';
-            container.appendChild(imgElement);
-            preview.appendChild(container);
-        };
-        reader.readAsDataURL(file);
+    openCropModal(fileArray, function(croppedFiles) {
+        const preview = document.getElementById('imagePreview');
+        preview.innerHTML = '';
+        uploadedImages = [];
+
+        croppedFiles.forEach((file, index) => {
+            uploadedImages.push({ file, index });
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const container = document.createElement('div');
+                container.className = 'image-preview-item';
+                container.style.position = 'relative';
+                container.style.display = 'inline-block';
+
+                const imgElement = document.createElement('img');
+                imgElement.src = event.target.result;
+                imgElement.style.cssText = 'width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--gray-300);';
+                container.appendChild(imgElement);
+                preview.appendChild(container);
+            };
+            reader.readAsDataURL(file);
+        });
     });
 });
 
@@ -407,9 +506,11 @@ function closeEditInventoryModal() {
     currentEditItemId = null;
 }
 
-// Handle new photo uploads in edit modal
-document.getElementById('editItemImages').addEventListener('change', async function(e) {
+// Handle new photo uploads in edit modal — routes through crop modal
+document.getElementById('editItemImages').addEventListener('change', function(e) {
     const files = e.target.files;
+    if (!files || files.length === 0) return;
+
     if (editUploadedImages.length + files.length > 5) {
         alert('Maximum 5 images allowed.');
     }
@@ -417,20 +518,22 @@ document.getElementById('editItemImages').addEventListener('change', async funct
     const remainingSlots = 5 - editUploadedImages.length;
     const fileArray = Array.from(files).slice(0, remainingSlots);
 
-    for (const file of fileArray) {
-        const reader = new FileReader();
-        const dataUrl = await new Promise(resolve => {
-            reader.onload = e => resolve(e.target.result);
-            reader.readAsDataURL(file);
-        });
-        editUploadedImages.push({
-            url: dataUrl,
-            isExisting: false,
-            file: file,
-            index: editUploadedImages.length
-        });
-    }
-    renderEditImagePreviews();
+    openCropModal(fileArray, async function(croppedFiles) {
+        for (const file of croppedFiles) {
+            const reader = new FileReader();
+            const dataUrl = await new Promise(resolve => {
+                reader.onload = ev => resolve(ev.target.result);
+                reader.readAsDataURL(file);
+            });
+            editUploadedImages.push({
+                url: dataUrl,
+                isExisting: false,
+                file: file,
+                index: editUploadedImages.length
+            });
+        }
+        renderEditImagePreviews();
+    });
 });
 
 // Handle edit form submission
