@@ -1296,3 +1296,13 @@ body {
     outline: 2px solid var(--orange);
     outline-color: var(--orange);
 }
+
+/* Draggable image previews */
+.image-preview-item[draggable="true"] {
+    transition: opacity 0.2s, transform 0.2s;
+    user-select: none;
+}
+
+.image-preview-item[draggable="true"]:active {
+    cursor: grabbing;
+}

@@ -250,6 +250,98 @@ document.getElementById('cropSkipBtn').addEventListener('click', function() {
     showNextCropImage();
 });
 
+// ==========================================
+// DRAG-TO-REORDER IMAGE PREVIEWS
+// ==========================================
+
+let dragSrcIndex = null;
+
+function makeDraggablePreview(container, index, arrayName) {
+    container.draggable = true;
+    container.style.cursor = 'grab';
+    container.dataset.index = index;
+    container.dataset.arrayName = arrayName;
+
+    container.addEventListener('dragstart', function(e) {
+        dragSrcIndex = parseInt(this.dataset.index);
+        this.style.opacity = '0.4';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', dragSrcIndex);
+    });
+
+    container.addEventListener('dragend', function() {
+        this.style.opacity = '1';
+    });
+
+    container.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.style.borderLeft = '3px solid var(--orange)';
+    });
+
+    container.addEventListener('dragleave', function() {
+        this.style.borderLeft = '';
+    });
+
+    container.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.style.borderLeft = '';
+        const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+        const toIndex = parseInt(this.dataset.index);
+        if (fromIndex === toIndex) return;
+
+        const arr = this.dataset.arrayName === 'edit' ? editUploadedImages : uploadedImages;
+        const moved = arr.splice(fromIndex, 1)[0];
+        arr.splice(toIndex, 0, moved);
+
+        if (this.dataset.arrayName === 'edit') {
+            renderEditImagePreviews();
+        } else {
+            renderCreateImagePreviews();
+        }
+    });
+}
+
+function renderCreateImagePreviews() {
+    const preview = document.getElementById('imagePreview');
+    preview.innerHTML = '';
+
+    uploadedImages.forEach((imgObj, index) => {
+        const container = document.createElement('div');
+        container.className = 'image-preview-item';
+        container.style.cssText = 'position:relative;display:inline-block;';
+
+        const imgElement = document.createElement('img');
+        imgElement.style.cssText = 'width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--gray-300);';
+
+        const badge = document.createElement('span');
+        badge.style.cssText = `position:absolute;top:5px;left:5px;background:${index === 0 ? 'var(--orange)' : 'var(--maroon)'};color:white;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:bold;`;
+        badge.textContent = index === 0 ? 'MAIN' : (index + 1);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerHTML = '&times;';
+        deleteBtn.style.cssText = 'position:absolute;top:5px;right:5px;background:var(--danger);color:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:1rem;line-height:1;';
+        deleteBtn.onclick = function(ev) {
+            ev.stopPropagation();
+            uploadedImages.splice(index, 1);
+            renderCreateImagePreviews();
+        };
+
+        // Read the file to get a data URL for the thumbnail
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            imgElement.src = event.target.result;
+        };
+        reader.readAsDataURL(imgObj.file);
+
+        container.appendChild(imgElement);
+        container.appendChild(badge);
+        container.appendChild(deleteBtn);
+        makeDraggablePreview(container, index, 'create');
+        preview.appendChild(container);
+    });
+}
+
 function openDropModal() {
     document.getElementById('dropModal').classList.add('active');
     document.getElementById('imagePreview').innerHTML = '';
@@ -273,27 +365,11 @@ document.getElementById('itemImages').addEventListener('change', function(e) {
     const fileArray = Array.from(files).slice(0, 5);
 
     openCropModal(fileArray, function(croppedFiles) {
-        const preview = document.getElementById('imagePreview');
-        preview.innerHTML = '';
         uploadedImages = [];
-
         croppedFiles.forEach((file, index) => {
             uploadedImages.push({ file, index });
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const container = document.createElement('div');
-                container.className = 'image-preview-item';
-                container.style.position = 'relative';
-                container.style.display = 'inline-block';
-
-                const imgElement = document.createElement('img');
-                imgElement.src = event.target.result;
-                imgElement.style.cssText = 'width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--gray-300);';
-                container.appendChild(imgElement);
-                preview.appendChild(container);
-            };
-            reader.readAsDataURL(file);
         });
+        renderCreateImagePreviews();
     });
 });
 
@@ -495,6 +571,7 @@ function renderEditImagePreviews() {
         container.appendChild(imgElement);
         container.appendChild(badge);
         container.appendChild(deleteBtn);
+        makeDraggablePreview(container, index, 'edit');
         preview.appendChild(container);
     });
 }
