@@ -1429,11 +1429,23 @@ async function viewSubmissionDetail(submissionId) {
                 </div>
             </div>`;
     } else if (submission.status === 'approved') {
+        // Check if product already exists for this submission
+        const { data: existingProduct } = await supabase
+            .from('products')
+            .select('id')
+            .eq('submission_id', submission.id)
+            .maybeSingle();
+
+        const inventoryBtn = existingProduct
+            ? `<p style="margin-top: 1rem; opacity: 0.9;">Product already in inventory (ID: ${existingProduct.id.substring(0, 8)})</p>`
+            : `<button class="btn-primary" onclick="addSubmissionToInventory('${submission.id}')" style="margin-top: 1rem; background: white; color: var(--success); font-weight: bold;">+ Add to Inventory</button>`;
+
         statusActions = `
             <div style="background: var(--success); color: white; padding: 1.5rem; border-radius: 8px; margin-top: 2rem;">
-                <h4>Approved & Added to Inventory</h4>
+                <h4>Approved by Seller</h4>
                 <p><strong>Final Price:</strong> $${parseFloat(submission.admin_price).toFixed(2)}</p>
                 <p><strong>Approved:</strong> ${new Date(submission.seller_approved_at).toLocaleString()}</p>
+                ${inventoryBtn}
             </div>`;
     } else if (submission.status === 'rejected') {
         statusActions = `
@@ -1532,6 +1544,64 @@ function copyApprovalLink(link) {
     } else {
         alert('Please copy the link manually.');
     }
+}
+
+async function addSubmissionToInventory(submissionId) {
+    const { data: submission } = await supabase
+        .from('seller_submissions')
+        .select('*, submission_images(*)')
+        .eq('id', submissionId)
+        .single();
+
+    if (!submission) { alert('Submission not found'); return; }
+
+    // Check if product already exists
+    const { data: existing } = await supabase
+        .from('products')
+        .select('id')
+        .eq('submission_id', submissionId)
+        .maybeSingle();
+
+    if (existing) {
+        alert('This submission is already in your inventory.');
+        return;
+    }
+
+    const productId = 'sub_' + Date.now().toString();
+    const { error: productError } = await supabase
+        .from('products')
+        .insert({
+            id: productId,
+            name: `${submission.item_type} - ${submission.era || 'Vintage'} VT`,
+            description: submission.description,
+            price: 0,
+            cost: parseFloat(submission.admin_price || 0),
+            category: submission.item_type,
+            size: 'TBD',
+            condition: submission.condition,
+            available: true,
+            submission_id: submissionId
+        });
+
+    if (productError) {
+        alert('Failed to create product: ' + productError.message);
+        return;
+    }
+
+    // Copy submission images to product images
+    const images = (submission.submission_images || []).sort((a, b) => a.display_order - b.display_order);
+    if (images.length > 0) {
+        const productImages = images.map((img, i) => ({
+            product_id: productId,
+            storage_path: img.storage_path,
+            display_order: i
+        }));
+        await supabase.from('product_images').insert(productImages);
+    }
+
+    alert('Item added to inventory! You can now edit the price and details in Manage Drops.');
+    closeSubmissionModal();
+    loadSubmissions();
 }
 
 // ==========================================
