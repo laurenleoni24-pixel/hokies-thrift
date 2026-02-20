@@ -1298,86 +1298,78 @@ function loadCheckoutPage() {
     const grandTotal = total + tax;
 
     checkoutContent.innerHTML = `
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+        <div class="checkout-grid">
             <!-- Order Summary -->
-            <div style="background: var(--light-beige); padding: 2rem; border-radius: 12px;">
-                <h2 style="font-family: 'Bebas Neue', cursive; color: var(--maroon); margin-bottom: 1.5rem; font-size: 2rem;">Order Summary</h2>
+            <div class="checkout-summary">
+                <h2>Order Summary</h2>
 
                 ${cart.map(item => {
                     const firstImage = (item.images && item.images.length > 0) ? item.images[0] : null;
                     return `
-                    <div style="display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid rgba(99, 0, 49, 0.1);">
-                        ${firstImage ? `<img src="${firstImage}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;">` : ''}
-                        <div style="flex: 1;">
+                    <div class="checkout-item">
+                        ${firstImage ? `<img src="${firstImage}" alt="${item.name}">` : ''}
+                        <div class="checkout-item-details">
                             <strong style="display: block;">${item.name}</strong>
                             <small style="color: #666;">Size: ${item.size || 'N/A'}</small>
                         </div>
-                        <span style="font-weight: 600; color: var(--orange);">$${item.price.toFixed(2)}</span>
+                        <span class="checkout-item-price">$${item.price.toFixed(2)}</span>
                     </div>
                 `}).join('')}
 
-                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 2px solid var(--maroon);">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <div class="checkout-totals">
+                    <div class="total-row">
                         <span>Subtotal:</span>
                         <span>$${total.toFixed(2)}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <div class="total-row">
                         <span>Tax (5.75%):</span>
                         <span>$${tax.toFixed(2)}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <div class="total-row">
                         <span>Shipping:</span>
                         <span>FREE</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: bold; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(99, 0, 49, 0.2);">
-                        <span style="color: var(--maroon);">Total:</span>
-                        <span style="color: var(--orange);">$${grandTotal.toFixed(2)}</span>
+                    <div class="grand-total">
+                        <span>Total:</span>
+                        <span>$${grandTotal.toFixed(2)}</span>
                     </div>
                 </div>
             </div>
 
             <!-- Payment Form -->
-            <div>
-                <h2 style="font-family: 'Bebas Neue', cursive; color: var(--maroon); margin-bottom: 1.5rem; font-size: 2rem;">Payment Details</h2>
+            <div class="checkout-payment">
+                <h2>Payment Details</h2>
 
-                <form id="payment-form" style="background: white; padding: 2rem; border-radius: 12px; border: 2px solid var(--light-beige);">
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">Email *</label>
-                        <input type="email" id="customer-email" required
-                               style="width: 100%; padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; font-size: 1rem;">
+                <form id="payment-form" class="checkout-form">
+                    <div class="checkout-field">
+                        <label>Email *</label>
+                        <input type="email" id="customer-email" required>
                     </div>
 
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">Full Name *</label>
-                        <input type="text" id="customer-name" required
-                               style="width: 100%; padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; font-size: 1rem;">
+                    <div class="checkout-field">
+                        <label>Full Name *</label>
+                        <input type="text" id="customer-name" required>
                     </div>
 
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">Street Address *</label>
-                        <input type="text" id="shipping-street" required autocomplete="off"
-                               style="width: 100%; padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; font-size: 1rem;"
-                               placeholder="123 Main St">
+                    <div class="checkout-field">
+                        <label>Street Address *</label>
+                        <input type="text" id="shipping-street" required autocomplete="off" placeholder="123 Main St">
                         <div id="address-suggestions" style="display: none; position: relative; z-index: 1000;"></div>
                     </div>
 
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">Apartment, Suite, etc. (optional)</label>
-                        <input type="text" id="shipping-apt" autocomplete="address-line2"
-                               style="width: 100%; padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; font-size: 1rem;"
-                               placeholder="Apt 4, Unit B, etc.">
+                    <div class="checkout-field">
+                        <label>Apt, Suite, etc. (optional)</label>
+                        <input type="text" id="shipping-apt" autocomplete="address-line2" placeholder="Apt 4, Unit B, etc.">
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">City *</label>
-                            <input type="text" id="shipping-city" required autocomplete="address-level2"
-                                   style="width: 100%; padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; font-size: 1rem;">
+                    <div class="checkout-address-row">
+                        <div class="checkout-field">
+                            <label>City *</label>
+                            <input type="text" id="shipping-city" required autocomplete="address-level2">
                         </div>
-                        <div>
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">State *</label>
-                            <select id="shipping-state" required autocomplete="address-level1"
-                                    style="width: 100%; padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; font-size: 1rem;">
+                        <div class="checkout-field">
+                            <label>State *</label>
+                            <select id="shipping-state" required autocomplete="address-level1">
                                 <option value="">Select</option>
                                 <option value="AL">AL</option><option value="AK">AK</option><option value="AZ">AZ</option><option value="AR">AR</option>
                                 <option value="CA">CA</option><option value="CO">CO</option><option value="CT">CT</option><option value="DE">DE</option>
@@ -1394,42 +1386,33 @@ function loadCheckoutPage() {
                                 <option value="WI">WI</option><option value="WY">WY</option><option value="DC">DC</option>
                             </select>
                         </div>
-                        <div>
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">ZIP *</label>
+                        <div class="checkout-field">
+                            <label>ZIP *</label>
                             <input type="text" id="shipping-zip" required autocomplete="postal-code" pattern="[0-9]{5}"
-                                   maxlength="5"
-                                   style="width: 100%; padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; font-size: 1rem;"
-                                   placeholder="22015">
+                                   maxlength="5" placeholder="22015">
                         </div>
                     </div>
 
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--maroon);">Card Details *</label>
-                        <div id="card-element" style="padding: 0.75rem; border: 2px solid var(--light-beige); border-radius: 8px; background: white;">
-                        </div>
-                        <div id="card-errors" style="color: var(--danger); margin-top: 0.5rem; font-size: 0.9rem;"></div>
+                    <div class="checkout-field">
+                        <label>Card Details *</label>
+                        <div id="card-element"></div>
+                        <div id="card-errors"></div>
                     </div>
 
-                    <button type="submit" id="submit-button"
-                            style="width: 100%; background: var(--orange); color: white; padding: 1.2rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1.2rem; font-family: 'Bebas Neue', cursive; letter-spacing: 1px;">
+                    <button type="submit" id="submit-button" class="checkout-submit">
                         Pay $${grandTotal.toFixed(2)}
                     </button>
 
-                    <div style="text-align: center; margin-top: 1rem;">
-                        <small style="color: #666;">
-                            <svg style="width: 16px; height: 16px; vertical-align: middle;" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-                            </svg>
-                            Secured by Stripe
-                        </small>
+                    <div class="checkout-secured">
+                        <svg style="width: 16px; height: 16px; vertical-align: middle;" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                        </svg>
+                        Secured by Stripe
                     </div>
 
-                    <div style="text-align: center; margin-top: 0.5rem;">
-                        <button type="button" onclick="backToShopping()"
-                                style="background: none; border: none; color: var(--maroon); text-decoration: underline; cursor: pointer;">
-                            ← Back to Shopping
-                        </button>
-                    </div>
+                    <button type="button" onclick="backToShopping()" class="checkout-back">
+                        ← Back to Shopping
+                    </button>
                 </form>
             </div>
         </div>

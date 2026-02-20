@@ -1228,3 +1228,205 @@ footer {
     pointer-events: auto !important;
     opacity: 1 !important;
 }
+
+/* ==============================
+   CHECKOUT STYLES
+   ============================== */
+.checkout-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.checkout-summary {
+    background: var(--light-beige);
+    padding: 2rem;
+    border-radius: 12px;
+}
+
+.checkout-summary h2,
+.checkout-payment h2 {
+    font-family: 'Bebas Neue', cursive;
+    color: var(--maroon);
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+}
+
+.checkout-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(99, 0, 49, 0.1);
+}
+
+.checkout-item img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.checkout-item-details {
+    flex: 1;
+}
+
+.checkout-item-price {
+    font-weight: 600;
+    color: var(--orange);
+}
+
+.checkout-totals {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 2px solid var(--maroon);
+}
+
+.checkout-totals .total-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.checkout-totals .grand-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(99, 0, 49, 0.2);
+}
+
+.checkout-totals .grand-total span:first-child {
+    color: var(--maroon);
+}
+
+.checkout-totals .grand-total span:last-child {
+    color: var(--orange);
+}
+
+.checkout-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    border: 2px solid var(--light-beige);
+}
+
+.checkout-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--maroon);
+}
+
+.checkout-form input,
+.checkout-form select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--light-beige);
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.checkout-field {
+    margin-bottom: 1.5rem;
+}
+
+.checkout-address-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+#card-element {
+    padding: 0.75rem;
+    border: 2px solid var(--light-beige);
+    border-radius: 8px;
+    background: white;
+}
+
+#card-errors {
+    color: var(--danger);
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.checkout-submit {
+    width: 100%;
+    background: var(--orange);
+    color: white;
+    padding: 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-family: 'Bebas Neue', cursive;
+    letter-spacing: 1px;
+}
+
+.checkout-secured {
+    text-align: center;
+    margin-top: 1rem;
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.checkout-back {
+    display: block;
+    text-align: center;
+    margin-top: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--maroon);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .checkout-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+
+    .checkout-summary {
+        padding: 1.25rem;
+    }
+
+    .checkout-form {
+        padding: 1.25rem;
+    }
+
+    .checkout-address-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .checkout-address-row .checkout-field {
+        margin-bottom: 1.5rem;
+    }
+
+    .checkout-summary h2,
+    .checkout-payment h2 {
+        font-size: 1.6rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .checkout-summary {
+        padding: 1rem;
+    }
+
+    .checkout-form {
+        padding: 1rem;
+    }
+
+    .checkout-submit {
+        font-size: 1.1rem;
+        padding: 1rem;
+    }
+}
