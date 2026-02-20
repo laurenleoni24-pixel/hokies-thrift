@@ -1282,7 +1282,7 @@ function goToCheckout() {
 }
 
 // Stripe configuration
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_51SkDzEPi2IQrE6IGuAOxp2dU7dFUFeDPT7VMBG7A3NwMi93mmzzpSMmeGZ65CZjnc2m7yQHDUYspXamuqgvZ2SVh00qoAJF0hT';
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51SkDyTBFU8xde1kAbuXcrZ8ZBQGKWfegXKrTN5LXfOEtQoC8WQtWnVOFhw27IIYW34y32pgRRs7uefqZToxU888L006sOaz1y6';
 let stripe = null;
 
 function initializeStripe() {
