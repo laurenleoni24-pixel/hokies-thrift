@@ -1509,6 +1509,7 @@ function setupStripeCheckout(amount) {
         submitButton.textContent = 'Processing...';
 
         try {
+            // Step 1: Tokenize the card
             const {paymentMethod, error} = await stripe.createPaymentMethod({
                 type: 'card',
                 card: cardElement,
@@ -1522,11 +1523,43 @@ function setupStripeCheckout(amount) {
                 document.getElementById('card-errors').textContent = error.message;
                 submitButton.disabled = false;
                 submitButton.textContent = 'Pay $' + amount.toFixed(2);
+                return;
+            }
+
+            // Step 2: Create PaymentIntent via worker
+            const intentResponse = await fetch(`${WORKER_URL}/create-payment-intent`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: amount })
+            });
+
+            const intentData = await intentResponse.json();
+
+            if (!intentResponse.ok || !intentData.clientSecret) {
+                throw new Error(intentData.error || 'Failed to create payment intent');
+            }
+
+            // Step 3: Confirm the payment (actually charges the card)
+            const { paymentIntent, error: confirmError } = await stripe.confirmCardPayment(
+                intentData.clientSecret,
+                { payment_method: paymentMethod.id }
+            );
+
+            if (confirmError) {
+                document.getElementById('card-errors').textContent = confirmError.message;
+                submitButton.disabled = false;
+                submitButton.textContent = 'Pay $' + amount.toFixed(2);
+                return;
+            }
+
+            if (paymentIntent.status === 'succeeded') {
+                // Step 4: Payment confirmed — save order to Supabase
+                processPayment(paymentIntent.id, amount);
             } else {
-                processPayment(paymentMethod.id, amount);
+                throw new Error('Payment was not completed. Status: ' + paymentIntent.status);
             }
         } catch (err) {
-            alert('Payment failed: ' + err.message);
+            document.getElementById('card-errors').textContent = err.message || 'Payment failed. Please try again.';
             submitButton.disabled = false;
             submitButton.textContent = 'Pay $' + amount.toFixed(2);
         }
@@ -1609,7 +1642,7 @@ function initializeAddressAutocomplete() {
     }
 }
 
-async function processPayment(paymentMethodId, amount) {
+async function processPayment(paymentIntentId, amount) {
     const shippingStreet = document.getElementById('shipping-street').value;
     const shippingApt = document.getElementById('shipping-apt').value;
     const shippingCity = document.getElementById('shipping-city').value;
@@ -1651,7 +1684,7 @@ async function processPayment(paymentMethodId, amount) {
             shipping_zip: shippingZip,
             shipping_full_address: fullAddress,
             payment_method: 'stripe',
-            payment_method_id: paymentMethodId,
+            payment_intent_id: paymentIntentId,
             total: amount,
             status: 'paid',
             shipping_label_url: shippingLabel ? shippingLabel.label_url : null,

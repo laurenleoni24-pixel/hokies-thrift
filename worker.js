@@ -6,6 +6,7 @@
  *
  * All data storage has been migrated to Supabase. This worker only handles:
  * - GET /listings — eBay Browse API proxy (needs server-side OAuth)
+ * - POST /create-payment-intent — Stripe payment intent creation
  * - GET /health — Health check
  * - POST /webhook — eBay platform notifications
  *
@@ -14,6 +15,7 @@
  * 2. Add environment variables:
  *    - EBAY_APP_ID: Your eBay Developer App ID (Client ID)
  *    - EBAY_CLIENT_SECRET: Your eBay Developer Cert ID (Client Secret)
+ *    - STRIPE_SECRET_KEY: Your Stripe secret key (sk_live_... or sk_test_...)
  * 3. Copy your Worker URL to the admin eBay settings panel
  */
 
@@ -58,6 +60,45 @@ async function handleRequest(request) {
 
       const listings = await fetchEbayListings(token, seller, limit);
       return jsonResponse(listings, 200, corsHeaders);
+    }
+
+    // Route: POST /create-payment-intent (Stripe)
+    if (url.pathname === '/create-payment-intent' && request.method === 'POST') {
+      try {
+        if (typeof STRIPE_SECRET_KEY === 'undefined' || !STRIPE_SECRET_KEY) {
+          return jsonResponse({ error: 'Stripe secret key not configured' }, 500, corsHeaders);
+        }
+
+        const body = await request.json();
+        const amountInDollars = parseFloat(body.amount);
+
+        if (!amountInDollars || amountInDollars <= 0) {
+          return jsonResponse({ error: 'Invalid amount' }, 400, corsHeaders);
+        }
+
+        const amountInCents = Math.round(amountInDollars * 100);
+
+        const stripeResponse = await fetch('https://api.stripe.com/v1/payment_intents', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${STRIPE_SECRET_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `amount=${amountInCents}&currency=usd&automatic_payment_methods[enabled]=true`,
+        });
+
+        if (!stripeResponse.ok) {
+          const errorData = await stripeResponse.text();
+          console.error('Stripe API error:', errorData);
+          return jsonResponse({ error: 'Failed to create payment intent' }, 500, corsHeaders);
+        }
+
+        const paymentIntent = await stripeResponse.json();
+        return jsonResponse({ clientSecret: paymentIntent.client_secret }, 200, corsHeaders);
+      } catch (error) {
+        console.error('Payment intent error:', error);
+        return jsonResponse({ error: error.message }, 500, corsHeaders);
+      }
     }
 
     // Route: POST /webhook (eBay platform notifications)
