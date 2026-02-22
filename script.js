@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadHokiesEvents();
 });
 
-// Navigate to a page by ID and update the URL hash
+// Navigate to a page by ID and update the URL
 function navigateToPage(targetId) {
     const navLinks = document.querySelectorAll('.nav-links a');
     const pages = document.querySelectorAll('.page');
@@ -30,8 +30,9 @@ function navigateToPage(targetId) {
         loadEbayListings();
     }
 
-    // Update URL hash without triggering hashchange
-    history.replaceState(null, '', '#' + targetId);
+    // Update URL to clean path (e.g. /shop) — home shows as /
+    const urlPath = (targetId === 'home') ? '/' : '/' + targetId;
+    history.pushState({ page: targetId }, '', urlPath);
 
     document.getElementById('navLinks').classList.remove('active');
     window.scrollTo(0, 0);
@@ -58,18 +59,33 @@ function initNavigation() {
         });
     });
 
-    // Handle direct URL with hash (e.g. hokiesthrift.com/#shop)
-    handleHashNavigation();
+    // Handle direct URL (e.g. hokiesthrift.com/shop or ?p=shop from 404 redirect)
+    handleDirectNavigation();
 
     // Handle browser back/forward buttons
-    window.addEventListener('hashchange', handleHashNavigation);
+    window.addEventListener('popstate', function(e) {
+        if (e.state && e.state.page) {
+            navigateToPage(e.state.page);
+        }
+    });
 }
 
-function handleHashNavigation() {
-    const hash = window.location.hash.substring(1);
+function handleDirectNavigation() {
     const validPages = ['home', 'shop', 'sell', 'browse', 'checkout'];
-    if (hash && validPages.includes(hash)) {
-        navigateToPage(hash);
+
+    // Check for ?p= param (from 404.html redirect)
+    const params = new URLSearchParams(window.location.search);
+    const redirectPage = params.get('p');
+    if (redirectPage && validPages.includes(redirectPage)) {
+        history.replaceState({ page: redirectPage }, '', '/' + redirectPage);
+        navigateToPage(redirectPage);
+        return;
+    }
+
+    // Check URL path (e.g. /shop)
+    const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+    if (path && validPages.includes(path)) {
+        navigateToPage(path);
     }
 }
 
