@@ -71,7 +71,7 @@ function initNavigation() {
 }
 
 function handleDirectNavigation() {
-    const validPages = ['home', 'shop', 'sell', 'browse', 'checkout'];
+    const validPages = ['home', 'shop', 'sell', 'browse', 'checkout', 'confirmation'];
 
     // Check for ?p= param (from 404.html redirect)
     const params = new URLSearchParams(window.location.search);
@@ -1739,6 +1739,9 @@ async function processPayment(paymentIntentId, amount) {
 }
 
 function showOrderConfirmation(order) {
+    // Update URL to /confirmation for Google Ads conversion tracking
+    history.replaceState({ page: 'confirmation' }, '', '/confirmation');
+
     const checkoutContent = document.getElementById('checkoutContent');
     checkoutContent.innerHTML = `
         <div style="max-width: 600px; margin: 4rem auto; text-align: center;">
