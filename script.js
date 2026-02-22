@@ -13,28 +13,39 @@ document.addEventListener('DOMContentLoaded', function() {
     loadHokiesEvents();
 });
 
+// Navigate to a page by ID and update the URL hash
+function navigateToPage(targetId) {
+    const navLinks = document.querySelectorAll('.nav-links a');
+    const pages = document.querySelectorAll('.page');
+
+    navLinks.forEach(l => l.classList.remove('active'));
+    const targetNav = document.querySelector(`.nav-links a[href="#${targetId}"]`);
+    if (targetNav) targetNav.classList.add('active');
+
+    pages.forEach(page => page.classList.remove('active'));
+    const targetPage = document.getElementById(targetId);
+    if (targetPage) targetPage.classList.add('active');
+
+    if (targetId === 'browse') {
+        loadEbayListings();
+    }
+
+    // Update URL hash without triggering hashchange
+    history.replaceState(null, '', '#' + targetId);
+
+    document.getElementById('navLinks').classList.remove('active');
+    window.scrollTo(0, 0);
+}
+
 // Navigation between pages
 function initNavigation() {
     const navLinks = document.querySelectorAll('.nav-links a');
-    const pages = document.querySelectorAll('.page');
 
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             const targetId = this.getAttribute('href').substring(1);
-
-            navLinks.forEach(l => l.classList.remove('active'));
-            this.classList.add('active');
-
-            pages.forEach(page => page.classList.remove('active'));
-            document.getElementById(targetId).classList.add('active');
-
-            if (targetId === 'browse') {
-                loadEbayListings();
-            }
-
-            document.getElementById('navLinks').classList.remove('active');
-            window.scrollTo(0, 0);
+            navigateToPage(targetId);
         });
     });
 
@@ -43,21 +54,23 @@ function initNavigation() {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             const targetId = this.getAttribute('href').substring(1);
-
-            navLinks.forEach(l => l.classList.remove('active'));
-            const targetNav = document.querySelector(`.nav-links a[href="#${targetId}"]`);
-            if (targetNav) targetNav.classList.add('active');
-
-            pages.forEach(page => page.classList.remove('active'));
-            document.getElementById(targetId).classList.add('active');
-
-            if (targetId === 'browse') {
-                loadEbayListings();
-            }
-
-            window.scrollTo(0, 0);
+            navigateToPage(targetId);
         });
     });
+
+    // Handle direct URL with hash (e.g. hokiesthrift.com/#shop)
+    handleHashNavigation();
+
+    // Handle browser back/forward buttons
+    window.addEventListener('hashchange', handleHashNavigation);
+}
+
+function handleHashNavigation() {
+    const hash = window.location.hash.substring(1);
+    const validPages = ['home', 'shop', 'sell', 'browse', 'checkout'];
+    if (hash && validPages.includes(hash)) {
+        navigateToPage(hash);
+    }
 }
 
 // Mobile menu toggle
@@ -251,8 +264,6 @@ function initShopTabs() {
 // Handle navigation cards with shop tab switching
 function initNavigationCards() {
     const navCards = document.querySelectorAll('.nav-card');
-    const navLinks = document.querySelectorAll('.nav-links a');
-    const pages = document.querySelectorAll('.page');
 
     navCards.forEach(card => {
         card.addEventListener('click', function(e) {
@@ -260,12 +271,7 @@ function initNavigationCards() {
             const targetId = this.getAttribute('href').substring(1);
             const shopTab = this.getAttribute('data-shop-tab');
 
-            navLinks.forEach(l => l.classList.remove('active'));
-            const targetNav = document.querySelector(`.nav-links a[href="#${targetId}"]`);
-            if (targetNav) targetNav.classList.add('active');
-
-            pages.forEach(page => page.classList.remove('active'));
-            document.getElementById(targetId).classList.add('active');
+            navigateToPage(targetId);
 
             if (targetId === 'shop' && shopTab) {
                 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -289,12 +295,6 @@ function initNavigationCards() {
                     loadShopInventory();
                 }
             }
-
-            if (targetId === 'browse') {
-                loadEbayListings();
-            }
-
-            window.scrollTo(0, 0);
         });
     });
 }
