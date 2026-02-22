@@ -448,6 +448,58 @@ body {
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
+/* Mobile order cards */
+@media (max-width: 768px) {
+    .orders-table table thead {
+        display: none;
+    }
+
+    .orders-table table,
+    .orders-table table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .orders-table table tr {
+        display: block;
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-left: 4px solid var(--orange);
+    }
+
+    .orders-table table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid var(--gray-100, #f0f0f0);
+        font-size: 0.95rem;
+    }
+
+    .orders-table table td:last-child {
+        border-bottom: none;
+        padding-top: 0.75rem;
+        justify-content: flex-start;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .orders-table table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--maroon);
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+
+    .orders-table table td:last-child::before {
+        content: none;
+    }
+}
+
 .orders-table table {
     width: 100%;
     border-collapse: collapse;

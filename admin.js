@@ -1099,12 +1099,12 @@ async function loadOrders() {
 
     tbody.innerHTML = orderList.map(order => `
         <tr>
-            <td>#${order.id.substring(0, 8)}</td>
-            <td>${new Date(order.created_at).toLocaleDateString()}</td>
-            <td>${escapeHtml(order.customer_name)}<br><small>${escapeHtml(order.customer_email)}</small></td>
-            <td>${(order.order_items || []).length} item(s)</td>
-            <td>$${parseFloat(order.total).toFixed(2)}</td>
-            <td><span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span></td>
+            <td data-label="Order">#${order.id.substring(0, 8)}</td>
+            <td data-label="Date">${new Date(order.created_at).toLocaleDateString()}</td>
+            <td data-label="Customer">${escapeHtml(order.customer_name)}<br><small>${escapeHtml(order.customer_email)}</small></td>
+            <td data-label="Items">${(order.order_items || []).length} item(s)</td>
+            <td data-label="Total">$${parseFloat(order.total).toFixed(2)}</td>
+            <td data-label="Status"><span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span></td>
             <td>
                 <button class="btn-success" onclick="viewOrderDetail('${order.id}')">View</button>
                 <button class="btn-primary" onclick="updateOrderStatus('${order.id}')">Update</button>
@@ -1129,12 +1129,12 @@ async function loadOrdersFiltered(filter) {
 
     tbody.innerHTML = orderList.map(order => `
         <tr>
-            <td>#${order.id.substring(0, 8)}</td>
-            <td>${new Date(order.created_at).toLocaleDateString()}</td>
-            <td>${escapeHtml(order.customer_name)}<br><small>${escapeHtml(order.customer_email)}</small></td>
-            <td>${(order.order_items || []).length} item(s)</td>
-            <td>$${parseFloat(order.total).toFixed(2)}</td>
-            <td><span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span></td>
+            <td data-label="Order">#${order.id.substring(0, 8)}</td>
+            <td data-label="Date">${new Date(order.created_at).toLocaleDateString()}</td>
+            <td data-label="Customer">${escapeHtml(order.customer_name)}<br><small>${escapeHtml(order.customer_email)}</small></td>
+            <td data-label="Items">${(order.order_items || []).length} item(s)</td>
+            <td data-label="Total">$${parseFloat(order.total).toFixed(2)}</td>
+            <td data-label="Status"><span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span></td>
             <td>
                 <button class="btn-success" onclick="viewOrderDetail('${order.id}')">View</button>
                 <button class="btn-primary" onclick="updateOrderStatus('${order.id}')">Update</button>
