@@ -1005,10 +1005,23 @@ footer {
 @media (max-width: 768px) {
     .upcoming-drop-preview {
         grid-template-columns: 1fr;
+        gap: 0;
     }
 
     .drop-preview-images {
-        height: 200px;
+        height: auto;
+    }
+
+    .drop-preview-images img {
+        height: 120px;
+    }
+
+    .drop-preview-info {
+        padding: 1.25rem;
+    }
+
+    .drop-preview-info h3 {
+        font-size: 1.5rem;
     }
 
     .drop-header {
