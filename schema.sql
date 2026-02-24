@@ -339,6 +339,63 @@ CREATE POLICY "Anyone create event order items" ON event_order_items FOR INSERT 
 CREATE POLICY "Admin manage event order items" ON event_order_items FOR ALL USING (is_admin());
 
 -- ============================================
+-- SERVER-SIDE FUNCTIONS
+-- ============================================
+
+-- Accept a seller submission: updates status, creates product + copies images
+-- Uses SECURITY DEFINER so it runs with full privileges regardless of caller
+CREATE OR REPLACE FUNCTION accept_seller_submission(p_submission_id TEXT)
+RETURNS JSONB AS $$
+DECLARE
+  v_sub RECORD;
+  v_product_id TEXT;
+BEGIN
+  -- Get the submission
+  SELECT * INTO v_sub FROM seller_submissions WHERE id = p_submission_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Submission not found');
+  END IF;
+
+  IF v_sub.status != 'pending_seller' THEN
+    RETURN jsonb_build_object('error', 'Submission is not pending seller approval');
+  END IF;
+
+  -- Update submission status
+  UPDATE seller_submissions SET
+    status = 'approved',
+    seller_approved_at = now()
+  WHERE id = p_submission_id;
+
+  -- Create product in inventory
+  v_product_id := 'sub_' || extract(epoch from now())::bigint::text;
+
+  INSERT INTO products (id, name, description, price, cost, category, size, condition, available, submission_id)
+  VALUES (
+    v_product_id,
+    v_sub.item_type || ' - ' || COALESCE(v_sub.era, 'Vintage') || ' VT',
+    v_sub.description,
+    0,
+    v_sub.admin_price,
+    v_sub.item_type,
+    'TBD',
+    v_sub.condition,
+    true,
+    p_submission_id
+  );
+
+  -- Copy submission images to product images
+  INSERT INTO product_images (product_id, storage_path, display_order)
+  SELECT v_product_id, si.storage_path, si.display_order
+  FROM submission_images si
+  WHERE si.submission_id = p_submission_id
+  ORDER BY si.display_order;
+
+  RETURN jsonb_build_object('success', true, 'product_id', v_product_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
 -- STORAGE BUCKETS (run in Supabase Dashboard or via API)
 -- ============================================
 -- Create these buckets manually in Supabase Dashboard > Storage:

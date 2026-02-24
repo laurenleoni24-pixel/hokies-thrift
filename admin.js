@@ -2121,10 +2121,18 @@ async function loadEventCollections() {
     }).join('');
 }
 
-function openEventCollectionModal(editData) {
-    document.getElementById('eventCollectionForm').reset();
+function resetEventCollectionForm() {
     document.getElementById('eventCollectionId').value = '';
+    document.getElementById('eventCollectionName').value = '';
+    document.getElementById('eventCollectionDescription').value = '';
+    document.getElementById('eventCollectionStart').value = '';
+    document.getElementById('eventCollectionEnd').value = '';
+    document.getElementById('eventCollectionBanner').value = '';
     document.getElementById('eventCollectionBannerPreview').innerHTML = '';
+}
+
+function openEventCollectionModal(editData) {
+    resetEventCollectionForm();
     document.getElementById('eventCollectionModalTitle').textContent = 'Create Event Collection';
 
     if (editData) {
@@ -2143,7 +2151,7 @@ function openEventCollectionModal(editData) {
 
 function closeEventCollectionModal() {
     document.getElementById('eventCollectionModal').classList.remove('active');
-    document.getElementById('eventCollectionForm').reset();
+    resetEventCollectionForm();
 }
 
 async function editEventCollection(collectionId) {
@@ -2162,36 +2170,50 @@ async function deleteEventCollection(collectionId) {
     loadEventCollections();
 }
 
-document.getElementById('eventCollectionForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const existingId = document.getElementById('eventCollectionId').value;
+async function saveEventCollection() {
+    try {
+        const name = document.getElementById('eventCollectionName').value.trim();
+        const startVal = document.getElementById('eventCollectionStart').value;
+        const endVal = document.getElementById('eventCollectionEnd').value;
 
-    const colData = {
-        name: document.getElementById('eventCollectionName').value,
-        description: document.getElementById('eventCollectionDescription').value || null,
-        start_date: new Date(document.getElementById('eventCollectionStart').value).toISOString(),
-        end_date: new Date(document.getElementById('eventCollectionEnd').value).toISOString(),
-        active: true
-    };
+        if (!name) { alert('Please enter a collection name.'); return; }
+        if (!startVal) { alert('Please enter a start date.'); return; }
+        if (!endVal) { alert('Please enter an end date.'); return; }
 
-    // Upload banner image if selected
-    const bannerFile = document.getElementById('eventCollectionBanner').files[0];
-    if (bannerFile) {
-        const compressed = await compressImage(bannerFile, 1200, 0.8);
-        const url = await uploadImageFile('event-product-images', compressed, 'banners');
-        colData.banner_image_url = url;
+        const existingId = document.getElementById('eventCollectionId').value;
+
+        const colData = {
+            name: name,
+            description: document.getElementById('eventCollectionDescription').value || null,
+            start_date: new Date(startVal).toISOString(),
+            end_date: new Date(endVal).toISOString(),
+            active: true
+        };
+
+        // Upload banner image if selected
+        const bannerFile = document.getElementById('eventCollectionBanner').files[0];
+        if (bannerFile) {
+            const compressed = await compressImage(bannerFile, 1200, 0.8);
+            const url = await uploadImageFile('event-product-images', compressed, 'banners');
+            colData.banner_image_url = url;
+        }
+
+        if (existingId) {
+            const { error } = await supabase.from('event_collections').update(colData).eq('id', existingId);
+            if (error) throw error;
+        } else {
+            const { error } = await supabase.from('event_collections').insert(colData);
+            if (error) throw error;
+        }
+
+        closeEventCollectionModal();
+        loadEventCollections();
+        alert('Collection saved!');
+    } catch (err) {
+        console.error('Save collection error:', err);
+        alert('Error saving collection: ' + (err.message || err));
     }
-
-    if (existingId) {
-        await supabase.from('event_collections').update(colData).eq('id', existingId);
-    } else {
-        await supabase.from('event_collections').insert(colData);
-    }
-
-    closeEventCollectionModal();
-    loadEventCollections();
-    alert('Collection saved!');
-});
+}
 
 // --- Event Products within a Collection ---
 
@@ -2315,73 +2337,80 @@ async function deleteEventProduct(productId) {
 
 document.getElementById('eventProductForm').addEventListener('submit', async function(e) {
     e.preventDefault();
+    try {
+        const existingId = document.getElementById('eventProductId').value;
+        const collectionId = document.getElementById('eventProductCollectionId').value;
 
-    const existingId = document.getElementById('eventProductId').value;
-    const collectionId = document.getElementById('eventProductCollectionId').value;
+        const productData = {
+            collection_id: collectionId,
+            name: document.getElementById('eventProductName').value,
+            description: document.getElementById('eventProductDescription').value || null,
+            price: parseFloat(document.getElementById('eventProductPrice').value),
+            cost: parseFloat(document.getElementById('eventProductCost').value) || 0,
+            category: document.getElementById('eventProductCategory').value
+        };
 
-    const productData = {
-        collection_id: collectionId,
-        name: document.getElementById('eventProductName').value,
-        description: document.getElementById('eventProductDescription').value || null,
-        price: parseFloat(document.getElementById('eventProductPrice').value),
-        cost: parseFloat(document.getElementById('eventProductCost').value) || 0,
-        category: document.getElementById('eventProductCategory').value
-    };
+        // Gather sizes
+        const sizes = [];
+        document.querySelectorAll('#eventProductModal .size-check:checked').forEach(cb => {
+            const size = cb.value;
+            const stockInput = document.querySelector(`#eventProductModal .size-stock-input[data-size="${size}"]`);
+            const stock = parseInt(stockInput ? stockInput.value : 0) || 0;
+            sizes.push({ size, stock });
+        });
 
-    // Gather sizes
-    const sizes = [];
-    document.querySelectorAll('#eventProductModal .size-check:checked').forEach(cb => {
-        const size = cb.value;
-        const stockInput = document.querySelector(`#eventProductModal .size-stock-input[data-size="${size}"]`);
-        const stock = parseInt(stockInput ? stockInput.value : 0) || 0;
-        sizes.push({ size, stock });
-    });
+        if (sizes.length === 0) {
+            alert('Select at least one size with stock.');
+            return;
+        }
 
-    if (sizes.length === 0) {
-        alert('Select at least one size with stock.');
-        return;
-    }
+        let productId = existingId;
 
-    let productId = existingId;
-
-    if (existingId) {
-        await supabase.from('event_products').update(productData).eq('id', existingId);
-        // Delete old sizes and re-insert
-        await supabase.from('event_product_sizes').delete().eq('event_product_id', existingId);
-    } else {
-        const { data: inserted, error } = await supabase.from('event_products').insert(productData).select().single();
-        if (error) { alert('Error creating product: ' + error.message); return; }
-        productId = inserted.id;
-    }
-
-    // Insert sizes
-    const sizeRows = sizes.map(s => ({
-        event_product_id: productId,
-        size: s.size,
-        stock: s.stock,
-        sold: 0
-    }));
-    await supabase.from('event_product_sizes').insert(sizeRows);
-
-    // Upload new images if selected
-    const imageFiles = document.getElementById('eventProductImages').files;
-    if (imageFiles.length > 0) {
         if (existingId) {
-            // Delete old images when replacing
-            await supabase.from('event_product_images').delete().eq('event_product_id', existingId);
+            const { error } = await supabase.from('event_products').update(productData).eq('id', existingId);
+            if (error) throw error;
+            // Delete old sizes and re-insert
+            await supabase.from('event_product_sizes').delete().eq('event_product_id', existingId);
+        } else {
+            const { data: inserted, error } = await supabase.from('event_products').insert(productData).select().single();
+            if (error) throw error;
+            productId = inserted.id;
         }
-        for (let i = 0; i < Math.min(imageFiles.length, 5); i++) {
-            const compressed = await compressImage(imageFiles[i], 1200, 0.7);
-            const url = await uploadImageFile('event-product-images', compressed, `products/${productId}`);
-            await supabase.from('event_product_images').insert({
-                event_product_id: productId,
-                storage_path: url,
-                display_order: i
-            });
-        }
-    }
 
-    closeEventProductModal();
-    viewEventCollectionProducts(collectionId);
-    alert('Product saved!');
+        // Insert sizes
+        const sizeRows = sizes.map(s => ({
+            event_product_id: productId,
+            size: s.size,
+            stock: s.stock,
+            sold: 0
+        }));
+        const { error: sizeError } = await supabase.from('event_product_sizes').insert(sizeRows);
+        if (sizeError) throw sizeError;
+
+        // Upload new images if selected
+        const imageFiles = document.getElementById('eventProductImages').files;
+        if (imageFiles.length > 0) {
+            if (existingId) {
+                // Delete old images when replacing
+                await supabase.from('event_product_images').delete().eq('event_product_id', existingId);
+            }
+            for (let i = 0; i < Math.min(imageFiles.length, 5); i++) {
+                const compressed = await compressImage(imageFiles[i], 1200, 0.7);
+                const url = await uploadImageFile('event-product-images', compressed, `products/${productId}`);
+                const { error: imgError } = await supabase.from('event_product_images').insert({
+                    event_product_id: productId,
+                    storage_path: url,
+                    display_order: i
+                });
+                if (imgError) throw imgError;
+            }
+        }
+
+        closeEventProductModal();
+        viewEventCollectionProducts(collectionId);
+        alert('Product saved!');
+    } catch (err) {
+        console.error('Save product error:', err);
+        alert('Error saving product: ' + (err.message || err));
+    }
 });

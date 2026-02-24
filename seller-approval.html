@@ -251,53 +251,15 @@
             }
 
             try {
-                // Update submission status to approved
-                const { error: updateError } = await supabase
-                    .from('seller_submissions')
-                    .update({
-                        status: 'approved',
-                        seller_approved_at: new Date().toISOString()
-                    })
-                    .eq('id', currentSubmission.id);
+                // Call server-side function that handles everything with elevated privileges
+                const { data, error } = await supabase.rpc('accept_seller_submission', {
+                    p_submission_id: currentSubmission.id
+                });
 
-                if (updateError) throw updateError;
+                if (error) throw error;
 
-                // Fetch submission images for the new product
-                const { data: images } = await supabase
-                    .from('submission_images')
-                    .select('storage_path')
-                    .eq('submission_id', currentSubmission.id)
-                    .order('display_order', { ascending: true });
-
-                // Auto-create product from submission
-                const productId = 'sub_' + Date.now().toString();
-                const { error: productError } = await supabase
-                    .from('products')
-                    .insert({
-                        id: productId,
-                        name: `${currentSubmission.item_type} - ${currentSubmission.era || 'Vintage'} VT`,
-                        description: currentSubmission.description,
-                        price: 0,
-                        cost: parseFloat(currentSubmission.admin_price),
-                        category: currentSubmission.item_type,
-                        size: 'TBD',
-                        condition: currentSubmission.condition,
-                        available: true,
-                        submission_id: currentSubmission.id
-                    });
-
-                if (productError) {
-                    console.error('Failed to create product:', productError);
-                }
-
-                // Copy submission images to product images
-                if (images && images.length > 0) {
-                    const productImages = images.map((img, i) => ({
-                        product_id: productId,
-                        storage_path: img.storage_path,
-                        display_order: i
-                    }));
-                    await supabase.from('product_images').insert(productImages);
+                if (data && data.error) {
+                    throw new Error(data.error);
                 }
 
                 document.getElementById('approvalView').style.display = 'none';

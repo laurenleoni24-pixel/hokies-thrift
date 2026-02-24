@@ -863,11 +863,11 @@
         <div class="modal-content">
             <span class="close" onclick="closeEventCollectionModal()">&times;</span>
             <h2 id="eventCollectionModalTitle">Create Event Collection</h2>
-            <form id="eventCollectionForm">
+            <div id="eventCollectionForm">
                 <input type="hidden" id="eventCollectionId">
                 <div class="form-group">
                     <label>Collection Name *</label>
-                    <input type="text" id="eventCollectionName" required placeholder="e.g., St. Patrick's Day 2026">
+                    <input type="text" id="eventCollectionName" placeholder="e.g., St. Patrick's Day 2026">
                 </div>
                 <div class="form-group">
                     <label>Description</label>
@@ -876,11 +876,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Start Date *</label>
-                        <input type="datetime-local" id="eventCollectionStart" required>
+                        <input type="datetime-local" id="eventCollectionStart">
                     </div>
                     <div class="form-group">
                         <label>End Date *</label>
-                        <input type="datetime-local" id="eventCollectionEnd" required>
+                        <input type="datetime-local" id="eventCollectionEnd">
                     </div>
                 </div>
                 <div class="form-group">
@@ -889,10 +889,10 @@
                     <div id="eventCollectionBannerPreview" style="margin-top: 1rem;"></div>
                 </div>
                 <div class="modal-actions">
-                    <button type="submit" class="btn-primary">Save Collection</button>
+                    <button type="button" class="btn-primary" onclick="saveEventCollection()">Save Collection</button>
                     <button type="button" class="btn-secondary" onclick="closeEventCollectionModal()">Cancel</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 

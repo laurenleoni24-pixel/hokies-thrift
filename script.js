@@ -2253,7 +2253,7 @@ function createEventItemCardHTML(product) {
                 <div class="event-size-selector" data-product-id="${product.id}">
                     <label style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; display: block;">Size:</label>
                     <select class="event-size-select" id="eventSize_${product.id}" onchange="updateEventQtyMax('${product.id}')">
-                        ${availableSizes.map(s => `<option value="${s.size}" data-available="${s.stock - s.sold}">${s.size} (${s.stock - s.sold} left)</option>`).join('')}
+                        ${availableSizes.map(s => `<option value="${s.size}" data-available="${s.stock - s.sold}">${s.size}</option>`).join('')}
                     </select>
                 </div>
                 <div class="event-qty-selector">
