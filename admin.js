@@ -121,6 +121,7 @@ function switchSection(sectionName) {
     if (sectionName === 'submissions') loadSubmissions();
     if (sectionName === 'profits') loadProfits();
     if (sectionName === 'syndicated') loadSyndicatedListings();
+    if (sectionName === 'event-collections') loadEventCollections();
     if (sectionName === 'events') loadAdminEvents();
     if (sectionName === 'settings') { loadSettings(); loadEbaySettings(); loadShippoSettings(); loadGooglePlacesSettings(); }
 }
@@ -1148,6 +1149,9 @@ async function viewOrderDetail(orderId) {
     const { data: order } = await supabase.from('orders').select('*, order_items(*)').eq('id', orderId).single();
     if (!order) return;
 
+    // Also fetch event order items
+    const { data: eventItems } = await supabase.from('event_order_items').select('*').eq('order_id', orderId);
+
     const shippingAddr = order.shipping_full_address || `${order.shipping_street || ''}${order.shipping_apt ? ', ' + order.shipping_apt : ''}, ${order.shipping_city || ''}, ${order.shipping_state || ''} ${order.shipping_zip || ''}`;
 
     const content = `
@@ -1170,6 +1174,10 @@ async function viewOrderDetail(orderId) {
 
         <h4>Items:</h4>
         <ul>${(order.order_items || []).map(item => `<li>${escapeHtml(item.name)} - $${parseFloat(item.price).toFixed(2)}</li>`).join('')}</ul>
+        ${eventItems && eventItems.length > 0 ? `
+            <h4>Event Products:</h4>
+            <ul>${eventItems.map(item => `<li>${escapeHtml(item.name)} (${item.size}) x${item.quantity} - $${(parseFloat(item.price) * item.quantity).toFixed(2)}</li>`).join('')}</ul>
+        ` : ''}
         <p><strong>Total:</strong> $${parseFloat(order.total).toFixed(2)}</p>
         <p><strong>Status:</strong> <span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span></p>
     `;
@@ -1207,6 +1215,20 @@ async function loadProfits() {
         (products || []).forEach(p => { costMap[p.id] = parseFloat(p.cost || 0); });
     }
 
+    // Get event order items for completed orders
+    const completedOrderIds = completedOrders.map(o => o.id);
+    let eventOrderItems = [];
+    let eventCostMap = {};
+    if (completedOrderIds.length > 0) {
+        const { data: eItems } = await supabase.from('event_order_items').select('*').in('order_id', completedOrderIds);
+        eventOrderItems = eItems || [];
+        const eventProductIds = [...new Set(eventOrderItems.map(i => i.event_product_id))];
+        if (eventProductIds.length > 0) {
+            const { data: eProducts } = await supabase.from('event_products').select('id, cost').in('id', eventProductIds);
+            (eProducts || []).forEach(p => { eventCostMap[p.id] = parseFloat(p.cost || 0); });
+        }
+    }
+
     const totalRevenue = completedOrders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
     let totalCosts = 0;
     completedOrders.forEach(o => {
@@ -1214,13 +1236,17 @@ async function loadProfits() {
             totalCosts += costMap[item.product_id] || 0;
         });
     });
+    // Add event item costs
+    eventOrderItems.forEach(item => {
+        totalCosts += (eventCostMap[item.event_product_id] || 0) * item.quantity;
+    });
 
     document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toFixed(2);
     document.getElementById('totalCosts').textContent = '$' + totalCosts.toFixed(2);
     document.getElementById('netProfit').textContent = '$' + (totalRevenue - totalCosts).toFixed(2);
 
     const tbody = document.getElementById('salesTableBody');
-    if (completedOrders.length === 0) {
+    if (completedOrders.length === 0 && eventOrderItems.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">No completed sales yet</td></tr>';
         return;
     }
@@ -1240,6 +1266,22 @@ async function loadProfits() {
                 </tr>
             `);
         });
+    });
+    // Add event item sales rows
+    eventOrderItems.forEach(item => {
+        const order = completedOrders.find(o => o.id === item.order_id);
+        const cost = (eventCostMap[item.event_product_id] || 0) * item.quantity;
+        const revenue = parseFloat(item.price) * item.quantity;
+        const profit = revenue - cost;
+        salesRows.push(`
+            <tr>
+                <td>${order ? new Date(order.created_at).toLocaleDateString() : ''}</td>
+                <td>${escapeHtml(item.name)} (${item.size}) x${item.quantity}</td>
+                <td>$${revenue.toFixed(2)}</td>
+                <td>$${cost.toFixed(2)}</td>
+                <td style="color: ${profit > 0 ? 'green' : 'red'}; font-weight: bold;">$${profit.toFixed(2)}</td>
+            </tr>
+        `);
     });
     tbody.innerHTML = salesRows.join('');
 }
@@ -1987,6 +2029,11 @@ async function clearAllData() {
     if (!confirm('This CANNOT be undone! Click OK to delete.')) return;
 
     try {
+        await supabase.from('event_order_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('event_product_images').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('event_product_sizes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('event_products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('event_collections').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         await supabase.from('order_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         await supabase.from('orders').delete().neq('id', '');
         await supabase.from('product_images').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -2015,3 +2062,326 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// ==========================================
+// EVENT COLLECTIONS (Limited Edition Products)
+// ==========================================
+
+async function loadEventCollections() {
+    const container = document.getElementById('eventCollectionsContainer');
+    if (!container) return;
+
+    const { data: collections, error } = await supabase
+        .from('event_collections')
+        .select('*, event_products(id)')
+        .order('created_at', { ascending: false });
+
+    if (error) { console.error('Failed to load event collections:', error); return; }
+
+    const list = collections || [];
+    if (list.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No event collections yet. Create one to start selling limited edition merchandise!</p></div>';
+        return;
+    }
+
+    const now = new Date();
+    container.innerHTML = list.map(col => {
+        const start = new Date(col.start_date);
+        const end = new Date(col.end_date);
+        const isLive = col.active && now >= start && now <= end;
+        const isExpired = now > end;
+        const isUpcoming = now < start;
+        let statusBadge = '';
+        if (isLive) statusBadge = '<span class="status-badge" style="background: var(--success); color: white;">LIVE</span>';
+        else if (isExpired) statusBadge = '<span class="status-badge" style="background: var(--gray-300); color: var(--text-dark);">EXPIRED</span>';
+        else if (isUpcoming) statusBadge = '<span class="status-badge" style="background: #3B82F6; color: white;">UPCOMING</span>';
+        if (!col.active) statusBadge = '<span class="status-badge" style="background: var(--danger); color: white;">INACTIVE</span>';
+
+        const productCount = (col.event_products || []).length;
+
+        return `
+            <div class="drop-card" style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <h3 style="color: var(--maroon);">${escapeHtml(col.name)} ${statusBadge}</h3>
+                        ${col.description ? `<p class="drop-description">${escapeHtml(col.description)}</p>` : ''}
+                        <p class="drop-meta"><strong>Start:</strong> ${start.toLocaleString()} | <strong>End:</strong> ${end.toLocaleString()}</p>
+                        <p class="drop-stats">${productCount} product${productCount !== 1 ? 's' : ''}</p>
+                    </div>
+                    ${col.banner_image_url ? `<img src="${col.banner_image_url}" style="width: 80px; height: 50px; object-fit: cover; border-radius: 6px; margin-left: 1rem;">` : ''}
+                </div>
+                <div class="drop-actions">
+                    <button class="btn-primary" onclick="viewEventCollectionProducts('${col.id}')">Manage Products</button>
+                    <button class="btn-secondary" onclick="editEventCollection('${col.id}')">Edit</button>
+                    <button class="btn-secondary" onclick="toggleEventCollectionActive('${col.id}', ${!col.active})">${col.active ? 'Deactivate' : 'Activate'}</button>
+                    <button class="btn-danger" onclick="deleteEventCollection('${col.id}')">Delete</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function openEventCollectionModal(editData) {
+    document.getElementById('eventCollectionForm').reset();
+    document.getElementById('eventCollectionId').value = '';
+    document.getElementById('eventCollectionBannerPreview').innerHTML = '';
+    document.getElementById('eventCollectionModalTitle').textContent = 'Create Event Collection';
+
+    if (editData) {
+        document.getElementById('eventCollectionModalTitle').textContent = 'Edit Event Collection';
+        document.getElementById('eventCollectionId').value = editData.id;
+        document.getElementById('eventCollectionName').value = editData.name;
+        document.getElementById('eventCollectionDescription').value = editData.description || '';
+        document.getElementById('eventCollectionStart').value = new Date(editData.start_date).toISOString().slice(0, 16);
+        document.getElementById('eventCollectionEnd').value = new Date(editData.end_date).toISOString().slice(0, 16);
+        if (editData.banner_image_url) {
+            document.getElementById('eventCollectionBannerPreview').innerHTML = `<img src="${editData.banner_image_url}" style="max-width: 200px; border-radius: 8px;">`;
+        }
+    }
+    document.getElementById('eventCollectionModal').classList.add('active');
+}
+
+function closeEventCollectionModal() {
+    document.getElementById('eventCollectionModal').classList.remove('active');
+    document.getElementById('eventCollectionForm').reset();
+}
+
+async function editEventCollection(collectionId) {
+    const { data: col } = await supabase.from('event_collections').select('*').eq('id', collectionId).single();
+    if (col) openEventCollectionModal(col);
+}
+
+async function toggleEventCollectionActive(collectionId, active) {
+    await supabase.from('event_collections').update({ active }).eq('id', collectionId);
+    loadEventCollections();
+}
+
+async function deleteEventCollection(collectionId) {
+    if (!confirm('Delete this collection and all its products? This cannot be undone.')) return;
+    await supabase.from('event_collections').delete().eq('id', collectionId);
+    loadEventCollections();
+}
+
+document.getElementById('eventCollectionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const existingId = document.getElementById('eventCollectionId').value;
+
+    const colData = {
+        name: document.getElementById('eventCollectionName').value,
+        description: document.getElementById('eventCollectionDescription').value || null,
+        start_date: new Date(document.getElementById('eventCollectionStart').value).toISOString(),
+        end_date: new Date(document.getElementById('eventCollectionEnd').value).toISOString(),
+        active: true
+    };
+
+    // Upload banner image if selected
+    const bannerFile = document.getElementById('eventCollectionBanner').files[0];
+    if (bannerFile) {
+        const compressed = await compressImage(bannerFile, 1200, 0.8);
+        const url = await uploadImageFile('event-product-images', compressed, 'banners');
+        colData.banner_image_url = url;
+    }
+
+    if (existingId) {
+        await supabase.from('event_collections').update(colData).eq('id', existingId);
+    } else {
+        await supabase.from('event_collections').insert(colData);
+    }
+
+    closeEventCollectionModal();
+    loadEventCollections();
+    alert('Collection saved!');
+});
+
+// --- Event Products within a Collection ---
+
+let currentEventCollectionId = null;
+
+async function viewEventCollectionProducts(collectionId) {
+    currentEventCollectionId = collectionId;
+    const container = document.getElementById('eventCollectionsContainer');
+
+    const { data: collection } = await supabase.from('event_collections').select('*').eq('id', collectionId).single();
+    if (!collection) return;
+
+    const { data: products } = await supabase
+        .from('event_products')
+        .select('*, event_product_sizes(*), event_product_images(storage_path, display_order)')
+        .eq('collection_id', collectionId)
+        .order('created_at', { ascending: false });
+
+    const productList = products || [];
+
+    container.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+            <button class="btn-secondary" onclick="loadEventCollections()">← Back to Collections</button>
+        </div>
+        <h2 style="margin-bottom: 1rem;">${escapeHtml(collection.name)} — Products</h2>
+        <div class="section-header">
+            <button class="btn-primary" onclick="openEventProductModal()">+ Add Product</button>
+        </div>
+        <div class="inventory-grid">
+            ${productList.length === 0 ? '<div class="empty-state"><p>No products yet. Add one!</p></div>' : ''}
+            ${productList.map(p => {
+                const images = (p.event_product_images || []).sort((a, b) => a.display_order - b.display_order);
+                const firstImage = images.length > 0 ? images[0].storage_path : null;
+                const sizes = (p.event_product_sizes || []);
+                const totalStock = sizes.reduce((sum, s) => sum + s.stock, 0);
+                const totalSold = sizes.reduce((sum, s) => sum + s.sold, 0);
+
+                return `
+                    <div class="inventory-item">
+                        <div class="inventory-item-image">
+                            ${firstImage ? `<img src="${firstImage}" alt="${escapeHtml(p.name)}">` : `<span class="placeholder-icon">${p.category || 'item'}</span>`}
+                        </div>
+                        <div class="inventory-item-info">
+                            <h3>${escapeHtml(p.name)}</h3>
+                            <p class="inventory-item-price">$${parseFloat(p.price).toFixed(2)}</p>
+                            <p style="font-size: 0.85rem; color: var(--gray-700);">
+                                ${sizes.map(s => `${s.size}: ${s.stock - s.sold}/${s.stock}`).join(' | ')}
+                            </p>
+                            <p style="font-size: 0.85rem; color: var(--gray-700);">${totalSold} sold / ${totalStock} total</p>
+                            <div class="inventory-item-actions">
+                                <button class="btn-secondary" onclick="editEventProduct('${p.id}')">Edit</button>
+                                <button class="btn-danger" onclick="deleteEventProduct('${p.id}')">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function openEventProductModal(editData) {
+    document.getElementById('eventProductForm').reset();
+    document.getElementById('eventProductId').value = '';
+    document.getElementById('eventProductCollectionId').value = currentEventCollectionId;
+    document.getElementById('eventProductImagePreview').innerHTML = '';
+    document.getElementById('eventProductModalTitle').textContent = 'Add Event Product';
+
+    // Reset size checkboxes
+    document.querySelectorAll('#eventProductModal .size-check').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('#eventProductModal .size-stock-input').forEach(inp => { inp.value = '0'; });
+
+    if (editData) {
+        document.getElementById('eventProductModalTitle').textContent = 'Edit Event Product';
+        document.getElementById('eventProductId').value = editData.id;
+        document.getElementById('eventProductName').value = editData.name;
+        document.getElementById('eventProductDescription').value = editData.description || '';
+        document.getElementById('eventProductPrice').value = editData.price;
+        document.getElementById('eventProductCost').value = editData.cost || '';
+        document.getElementById('eventProductCategory').value = editData.category || 'tshirt';
+
+        // Populate sizes
+        (editData.event_product_sizes || []).forEach(s => {
+            const cb = document.querySelector(`#eventProductModal .size-check[value="${s.size}"]`);
+            const inp = document.querySelector(`#eventProductModal .size-stock-input[data-size="${s.size}"]`);
+            if (cb) cb.checked = true;
+            if (inp) inp.value = s.stock;
+        });
+
+        // Show existing images
+        const images = (editData.event_product_images || []).sort((a, b) => a.display_order - b.display_order);
+        if (images.length > 0) {
+            document.getElementById('eventProductImagePreview').innerHTML = images.map(img =>
+                `<img src="${img.storage_path}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 6px;">`
+            ).join('');
+        }
+    }
+
+    document.getElementById('eventProductModal').classList.add('active');
+}
+
+function closeEventProductModal() {
+    document.getElementById('eventProductModal').classList.remove('active');
+    document.getElementById('eventProductForm').reset();
+}
+
+async function editEventProduct(productId) {
+    const { data: product } = await supabase
+        .from('event_products')
+        .select('*, event_product_sizes(*), event_product_images(storage_path, display_order)')
+        .eq('id', productId)
+        .single();
+    if (product) openEventProductModal(product);
+}
+
+async function deleteEventProduct(productId) {
+    if (!confirm('Delete this product?')) return;
+    await supabase.from('event_products').delete().eq('id', productId);
+    viewEventCollectionProducts(currentEventCollectionId);
+}
+
+document.getElementById('eventProductForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const existingId = document.getElementById('eventProductId').value;
+    const collectionId = document.getElementById('eventProductCollectionId').value;
+
+    const productData = {
+        collection_id: collectionId,
+        name: document.getElementById('eventProductName').value,
+        description: document.getElementById('eventProductDescription').value || null,
+        price: parseFloat(document.getElementById('eventProductPrice').value),
+        cost: parseFloat(document.getElementById('eventProductCost').value) || 0,
+        category: document.getElementById('eventProductCategory').value
+    };
+
+    // Gather sizes
+    const sizes = [];
+    document.querySelectorAll('#eventProductModal .size-check:checked').forEach(cb => {
+        const size = cb.value;
+        const stockInput = document.querySelector(`#eventProductModal .size-stock-input[data-size="${size}"]`);
+        const stock = parseInt(stockInput ? stockInput.value : 0) || 0;
+        sizes.push({ size, stock });
+    });
+
+    if (sizes.length === 0) {
+        alert('Select at least one size with stock.');
+        return;
+    }
+
+    let productId = existingId;
+
+    if (existingId) {
+        await supabase.from('event_products').update(productData).eq('id', existingId);
+        // Delete old sizes and re-insert
+        await supabase.from('event_product_sizes').delete().eq('event_product_id', existingId);
+    } else {
+        const { data: inserted, error } = await supabase.from('event_products').insert(productData).select().single();
+        if (error) { alert('Error creating product: ' + error.message); return; }
+        productId = inserted.id;
+    }
+
+    // Insert sizes
+    const sizeRows = sizes.map(s => ({
+        event_product_id: productId,
+        size: s.size,
+        stock: s.stock,
+        sold: 0
+    }));
+    await supabase.from('event_product_sizes').insert(sizeRows);
+
+    // Upload new images if selected
+    const imageFiles = document.getElementById('eventProductImages').files;
+    if (imageFiles.length > 0) {
+        if (existingId) {
+            // Delete old images when replacing
+            await supabase.from('event_product_images').delete().eq('event_product_id', existingId);
+        }
+        for (let i = 0; i < Math.min(imageFiles.length, 5); i++) {
+            const compressed = await compressImage(imageFiles[i], 1200, 0.7);
+            const url = await uploadImageFile('event-product-images', compressed, `products/${productId}`);
+            await supabase.from('event_product_images').insert({
+                event_product_id: productId,
+                storage_path: url,
+                display_order: i
+            });
+        }
+    }
+
+    closeEventProductModal();
+    viewEventCollectionProducts(collectionId);
+    alert('Product saved!');
+});

@@ -61,6 +61,7 @@
                     <li><a href="#" class="menu-item" data-section="profits">💰 Profits</a></li>
                     <li><a href="#" class="menu-item" data-section="syndicated">🔗 Syndicated Listings</a></li>
                     <li><a href="#" class="menu-item" data-section="ebay-curation">🛍️ eBay Curation</a></li>
+                    <li><a href="#" class="menu-item" data-section="event-collections">🎫 Event Collections</a></li>
                     <li><a href="#" class="menu-item" data-section="events">🏈 Hokies Events</a></li>
                     <li><a href="#" class="menu-item" data-section="settings">⚙️ Settings</a></li>
                 </ul>
@@ -303,6 +304,20 @@
 
                     <div id="ebay-curation-container">
                         <p style="color: #666; text-align: center; padding: 2rem;">Click "Refresh eBay Listings" to load your eBay items</p>
+                    </div>
+                </section>
+
+                <!-- EVENT COLLECTIONS SECTION -->
+                <section id="event-collections" class="admin-section">
+                    <h1>Event Collections</h1>
+                    <p class="section-desc">Manage limited edition event merchandise (St. Patrick's Day, Game Day, etc.)</p>
+
+                    <div class="section-header">
+                        <button class="btn-primary" onclick="openEventCollectionModal()">+ Create Collection</button>
+                    </div>
+
+                    <div id="eventCollectionsContainer">
+                        <!-- Event collections will be loaded here -->
                     </div>
                 </section>
 
@@ -840,6 +855,119 @@
                 <button type="button" class="btn-secondary" id="cropSkipBtn">Skip (Use Original)</button>
                 <button type="button" class="btn-primary" id="cropSaveBtn">Crop & Save</button>
             </div>
+        </div>
+    </div>
+
+    <!-- EVENT COLLECTION MODAL -->
+    <div id="eventCollectionModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEventCollectionModal()">&times;</span>
+            <h2 id="eventCollectionModalTitle">Create Event Collection</h2>
+            <form id="eventCollectionForm">
+                <input type="hidden" id="eventCollectionId">
+                <div class="form-group">
+                    <label>Collection Name *</label>
+                    <input type="text" id="eventCollectionName" required placeholder="e.g., St. Patrick's Day 2026">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="eventCollectionDescription" rows="3" placeholder="Describe this event collection"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date *</label>
+                        <input type="datetime-local" id="eventCollectionStart" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date *</label>
+                        <input type="datetime-local" id="eventCollectionEnd" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Banner Image</label>
+                    <input type="file" id="eventCollectionBanner" accept="image/*">
+                    <div id="eventCollectionBannerPreview" style="margin-top: 1rem;"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">Save Collection</button>
+                    <button type="button" class="btn-secondary" onclick="closeEventCollectionModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EVENT PRODUCT MODAL -->
+    <div id="eventProductModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEventProductModal()">&times;</span>
+            <h2 id="eventProductModalTitle">Add Event Product</h2>
+            <form id="eventProductForm">
+                <input type="hidden" id="eventProductId">
+                <input type="hidden" id="eventProductCollectionId">
+                <div class="form-group">
+                    <label>Product Name *</label>
+                    <input type="text" id="eventProductName" required placeholder="e.g., St. Paddy's Hokies Tee">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="eventProductDescription" rows="3" placeholder="Product description"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Price *</label>
+                        <input type="number" id="eventProductPrice" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cost</label>
+                        <input type="number" id="eventProductCost" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="eventProductCategory">
+                        <option value="tshirt">T-Shirt</option>
+                        <option value="hoodie">Hoodie/Sweatshirt</option>
+                        <option value="jacket">Jacket</option>
+                        <option value="jersey">Jersey</option>
+                        <option value="hat">Hat/Cap</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Sizes & Stock</label>
+                    <div class="size-stock-grid">
+                        <div class="size-stock-row">
+                            <label><input type="checkbox" class="size-check" value="S"> S</label>
+                            <input type="number" class="size-stock-input" data-size="S" min="0" value="0" placeholder="Stock">
+                        </div>
+                        <div class="size-stock-row">
+                            <label><input type="checkbox" class="size-check" value="M"> M</label>
+                            <input type="number" class="size-stock-input" data-size="M" min="0" value="0" placeholder="Stock">
+                        </div>
+                        <div class="size-stock-row">
+                            <label><input type="checkbox" class="size-check" value="L"> L</label>
+                            <input type="number" class="size-stock-input" data-size="L" min="0" value="0" placeholder="Stock">
+                        </div>
+                        <div class="size-stock-row">
+                            <label><input type="checkbox" class="size-check" value="XL"> XL</label>
+                            <input type="number" class="size-stock-input" data-size="XL" min="0" value="0" placeholder="Stock">
+                        </div>
+                        <div class="size-stock-row">
+                            <label><input type="checkbox" class="size-check" value="XXL"> XXL</label>
+                            <input type="number" class="size-stock-input" data-size="XXL" min="0" value="0" placeholder="Stock">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Upload Photos (up to 5)</label>
+                    <input type="file" id="eventProductImages" accept="image/*" multiple>
+                    <div id="eventProductImagePreview" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">Save Product</button>
+                    <button type="button" class="btn-secondary" onclick="closeEventProductModal()">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 

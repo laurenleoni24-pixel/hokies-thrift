@@ -1358,3 +1358,47 @@ body {
 .image-preview-item[draggable="true"]:active {
     cursor: grabbing;
 }
+
+/* ==============================
+   EVENT PRODUCT SIZE-STOCK GRID
+   ============================== */
+
+.size-stock-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.size-stock-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--gray-100);
+    border-radius: 6px;
+}
+
+.size-stock-row label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 60px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.size-stock-row label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.size-stock-input {
+    width: 80px;
+    padding: 0.4rem 0.5rem;
+    border: 2px solid var(--gray-200);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    text-align: center;
+}

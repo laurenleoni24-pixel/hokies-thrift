@@ -151,6 +151,9 @@
                     </div>
                 </div>
 
+                <!-- Event Banner (auto-populated when active event exists) -->
+                <div id="eventBanner" class="event-banner" style="display:none;"></div>
+
                 <div class="hero-content">
                     <h1>HOKIES THRIFT</h1>
                     <p class="tagline">Your premier source for authentic Virginia Tech vintage gear</p>
@@ -211,6 +214,7 @@
                 <div class="shop-tabs">
                     <button class="tab-btn active" data-tab="available">Available Now</button>
                     <button class="tab-btn" data-tab="upcoming">Upcoming Drops</button>
+                    <button class="tab-btn" data-tab="events">Limited Edition</button>
                 </div>
 
                 <div class="tab-content active" id="available">
@@ -253,6 +257,12 @@
 
                 <div class="tab-content" id="upcoming">
                     <div id="upcomingDropsPreview">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="tab-content" id="events">
+                    <div id="eventShopItems" class="items-grid">
                         <!-- Populated by JS -->
                     </div>
                 </div>

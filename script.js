@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initMobileMenu();
     updateCartCount();
     loadHokiesEvents();
+    loadEventBanner();
 });
 
 // Navigate to a page by ID and update the URL
@@ -272,6 +273,8 @@ function initShopTabs() {
                 loadUpcomingDropsPreview();
             } else if (targetTab === 'available-now') {
                 loadShopInventory();
+            } else if (targetTab === 'events') {
+                loadEventShopItems();
             }
         });
     });
@@ -309,6 +312,8 @@ function initNavigationCards() {
                     loadUpcomingDropsPreview();
                 } else if (shopTab === 'available') {
                     loadShopInventory();
+                } else if (shopTab === 'events') {
+                    loadEventShopItems();
                 }
             }
         });
@@ -1150,8 +1155,11 @@ async function buyNow(itemId) {
     goToCheckout();
 }
 
-function removeFromCart(itemId) {
-    cart = cart.filter(i => i.id !== itemId);
+function removeFromCart(key) {
+    cart = cart.filter(i => {
+        if (i.type === 'event') return i.cartItemKey !== key;
+        return i.id !== key;
+    });
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
     // Refresh the cart sidebar if it's open
@@ -1175,14 +1183,17 @@ function viewCart() {
 function updateCartCount() {
     const cartCount = document.getElementById('cartCount');
     if (cartCount) {
-        const count = cart.length;
+        let count = 0;
+        cart.forEach(item => {
+            count += (item.type === 'event') ? item.quantity : 1;
+        });
         cartCount.textContent = count;
         cartCount.style.display = count > 0 ? 'inline-block' : 'none';
     }
 }
 
 function showCartModal() {
-    const total = cart.reduce((sum, item) => sum + item.price, 0);
+    const total = cart.reduce((sum, item) => sum + (item.type === 'event' ? item.price * item.quantity : item.price), 0);
 
     const overlay = document.createElement('div');
     overlay.id = 'cartOverlay';
@@ -1221,15 +1232,23 @@ function showCartModal() {
             ` : `
                 ${cart.map(item => {
                     const firstImage = (item.images && item.images.length > 0) ? item.images[0] : null;
+                    const isEvent = item.type === 'event';
+                    const itemTotal = isEvent ? item.price * item.quantity : item.price;
+                    const removeKey = isEvent ? item.cartItemKey : item.id;
                     return `
                     <div style="display: flex; gap: 1rem; padding: 1rem; border-bottom: 1px solid #eee; position: relative;">
                         ${firstImage ? `<img src="${firstImage}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; flex-shrink: 0;">` : ''}
                         <div style="flex: 1; min-width: 0;">
                             <strong style="display: block; margin-bottom: 0.25rem;">${item.name}</strong>
-                            <p style="color: #666; font-size: 0.85rem; margin: 0.25rem 0;">Size: ${item.size || 'N/A'}</p>
-                            <p style="color: var(--orange); font-weight: 600; margin: 0.5rem 0 0 0; font-size: 1.1rem;">$${item.price.toFixed(2)}</p>
+                            ${isEvent ? `
+                                <p style="color: #666; font-size: 0.85rem; margin: 0.25rem 0;">Size: ${item.size} | Qty: ${item.quantity}</p>
+                                <span style="display: inline-block; background: var(--maroon); color: white; padding: 0.1rem 0.5rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; margin-bottom: 0.25rem;">LIMITED EDITION</span>
+                            ` : `
+                                <p style="color: #666; font-size: 0.85rem; margin: 0.25rem 0;">Size: ${item.size || 'N/A'}</p>
+                            `}
+                            <p style="color: var(--orange); font-weight: 600; margin: 0.5rem 0 0 0; font-size: 1.1rem;">$${itemTotal.toFixed(2)}</p>
                         </div>
-                        <button onclick="removeFromCart('${item.id}')"
+                        <button onclick="removeFromCart('${removeKey}')"
                                 style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--danger); color: white; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; line-height: 1; display: flex; align-items: center; justify-content: center;"
                                 title="Remove from cart">
                             ×
@@ -1309,7 +1328,7 @@ function initializeStripe() {
 
 function loadCheckoutPage() {
     const checkoutContent = document.getElementById('checkoutContent');
-    const total = cart.reduce((sum, item) => sum + item.price, 0);
+    const total = cart.reduce((sum, item) => sum + (item.type === 'event' ? item.price * item.quantity : item.price), 0);
     const tax = total * 0.0575;
     const grandTotal = total + tax;
 
@@ -1321,14 +1340,21 @@ function loadCheckoutPage() {
 
                 ${cart.map(item => {
                     const firstImage = (item.images && item.images.length > 0) ? item.images[0] : null;
+                    const isEvent = item.type === 'event';
+                    const lineTotal = isEvent ? item.price * item.quantity : item.price;
                     return `
                     <div class="checkout-item">
                         ${firstImage ? `<img src="${firstImage}" alt="${item.name}">` : ''}
                         <div class="checkout-item-details">
                             <strong style="display: block;">${item.name}</strong>
-                            <small style="color: #666;">Size: ${item.size || 'N/A'}</small>
+                            ${isEvent ? `
+                                <small style="color: #666;">Size: ${item.size} | Qty: ${item.quantity}</small>
+                                <span style="display: inline-block; background: var(--maroon); color: white; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.65rem; font-weight: 600; margin-left: 0.25rem;">LIMITED EDITION</span>
+                            ` : `
+                                <small style="color: #666;">Size: ${item.size || 'N/A'}</small>
+                            `}
                         </div>
-                        <span class="checkout-item-price">$${item.price.toFixed(2)}</span>
+                        <span class="checkout-item-price">$${lineTotal.toFixed(2)}</span>
                     </div>
                 `}).join('')}
 
@@ -1702,22 +1728,56 @@ async function processPayment(paymentIntentId, amount) {
         return;
     }
 
-    // Insert order items
-    const orderItems = cart.map(item => ({
-        order_id: orderId,
-        product_id: item.id,
-        name: item.name,
-        price: item.price
-    }));
+    // Split cart into thrift items and event items
+    const thriftItems = cart.filter(item => item.type !== 'event');
+    const eventItems = cart.filter(item => item.type === 'event');
 
-    await supabase.from('order_items').insert(orderItems);
+    // Insert thrift order items
+    if (thriftItems.length > 0) {
+        const orderItems = thriftItems.map(item => ({
+            order_id: orderId,
+            product_id: item.id,
+            name: item.name,
+            price: item.price
+        }));
+        await supabase.from('order_items').insert(orderItems);
 
-    // Mark products as sold
-    const purchasedIds = cart.map(item => item.id);
-    await supabase
-        .from('products')
-        .update({ available: false })
-        .in('id', purchasedIds);
+        // Mark thrift products as sold
+        const purchasedIds = thriftItems.map(item => item.id);
+        await supabase
+            .from('products')
+            .update({ available: false })
+            .in('id', purchasedIds);
+    }
+
+    // Insert event order items and decrement stock
+    if (eventItems.length > 0) {
+        const eventOrderItems = eventItems.map(item => ({
+            order_id: orderId,
+            event_product_id: item.eventProductId,
+            size: item.size,
+            quantity: item.quantity,
+            name: item.name,
+            price: item.price
+        }));
+        await supabase.from('event_order_items').insert(eventOrderItems);
+
+        // Increment sold count for each event item size
+        for (const item of eventItems) {
+            const { data: sizeRow } = await supabase
+                .from('event_product_sizes')
+                .select('id, sold')
+                .eq('event_product_id', item.eventProductId)
+                .eq('size', item.size)
+                .single();
+            if (sizeRow) {
+                await supabase
+                    .from('event_product_sizes')
+                    .update({ sold: sizeRow.sold + item.quantity })
+                    .eq('id', sizeRow.id);
+            }
+        }
+    }
 
     // Clear cart
     cart = [];
@@ -1797,7 +1857,7 @@ function backToShopping() {
 }
 
 function showCheckoutModal() {
-    const total = cart.reduce((sum, item) => sum + item.price, 0);
+    const total = cart.reduce((sum, item) => sum + (item.type === 'event' ? item.price * item.quantity : item.price), 0);
 
     const modal = document.createElement('div');
     modal.className = 'modal active';
@@ -1875,7 +1935,7 @@ async function completeOrder() {
     const customerEmail = document.getElementById('customerEmail').value;
     const shippingAddress = document.getElementById('shippingAddress').value;
     const paymentMethod = document.getElementById('paymentMethod').value;
-    const total = cart.reduce((sum, item) => sum + item.price, 0);
+    const total = cart.reduce((sum, item) => sum + (item.type === 'event' ? item.price * item.quantity : item.price), 0);
 
     // Insert order into Supabase
     const { error: orderError } = await supabase
@@ -2010,3 +2070,294 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         }
     });
 });
+
+// ==============================
+// EVENT COLLECTIONS (Limited Edition)
+// ==============================
+
+// Load event banner on homepage
+async function loadEventBanner() {
+    const banner = document.getElementById('eventBanner');
+    if (!banner) return;
+
+    try {
+        const now = new Date().toISOString();
+        const { data: collections, error } = await supabase
+            .from('event_collections')
+            .select('*')
+            .eq('active', true)
+            .lte('start_date', now)
+            .gte('end_date', now)
+            .order('end_date', { ascending: true })
+            .limit(1);
+
+        if (error || !collections || collections.length === 0) {
+            banner.style.display = 'none';
+            return;
+        }
+
+        const col = collections[0];
+        const endDate = new Date(col.end_date);
+        const timeLeft = endDate - new Date();
+        const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+        const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+        banner.style.display = 'block';
+        banner.innerHTML = `
+            <div class="event-banner-inner">
+                ${col.banner_image_url ? `<img src="${col.banner_image_url}" alt="${col.name}" class="event-banner-image">` : ''}
+                <div class="event-banner-content">
+                    <span class="event-banner-badge">LIMITED EDITION</span>
+                    <h2>${col.name}</h2>
+                    ${col.description ? `<p>${col.description}</p>` : ''}
+                    <p class="event-banner-countdown">
+                        ${daysLeft > 0 ? daysLeft + ' days ' : ''}${hoursLeft} hours left
+                    </p>
+                    <button class="btn-primary" onclick="activateShopTab('events')">Shop Now</button>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.error('Failed to load event banner:', err);
+    }
+}
+
+// Navigate to shop and activate events tab
+function activateShopTab(tabName) {
+    navigateToPage('shop');
+
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(b => b.classList.remove('active'));
+    const targetTabBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+    if (targetTabBtn) targetTabBtn.classList.add('active');
+
+    tabContents.forEach(content => content.classList.remove('active'));
+    const targetContent = document.getElementById(tabName);
+    if (targetContent) targetContent.classList.add('active');
+
+    if (tabName === 'events') loadEventShopItems();
+}
+
+// Load event products for the Limited Edition shop tab
+async function loadEventShopItems() {
+    const container = document.getElementById('eventShopItems');
+    if (!container) return;
+
+    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem;"><p>Loading limited edition items...</p></div>';
+
+    try {
+        const now = new Date().toISOString();
+        const { data: collections, error } = await supabase
+            .from('event_collections')
+            .select('*, event_products(*, event_product_sizes(*), event_product_images(storage_path, display_order))')
+            .eq('active', true)
+            .lte('start_date', now)
+            .gte('end_date', now)
+            .order('end_date', { ascending: true });
+
+        if (error) throw error;
+
+        if (!collections || collections.length === 0) {
+            container.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                    <h3>No limited edition items available right now</h3>
+                    <p>Check back soon for exclusive event merchandise!</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = '';
+
+        collections.forEach(col => {
+            const products = col.event_products || [];
+            if (products.length === 0) return;
+
+            // Collection header
+            const header = document.createElement('div');
+            header.className = 'drop-header';
+            header.style.gridColumn = '1 / -1';
+            header.innerHTML = `
+                <h2 class="drop-name">${col.name}</h2>
+                ${col.description ? `<p class="drop-description">${col.description}</p>` : ''}
+                <span class="event-collection-badge">LIMITED EDITION</span>
+            `;
+            container.appendChild(header);
+
+            products.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = createEventItemCardHTML(product);
+                container.appendChild(card);
+            });
+        });
+
+        if (container.children.length === 0) {
+            container.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                    <h3>No limited edition items available right now</h3>
+                    <p>Check back soon for exclusive event merchandise!</p>
+                </div>
+            `;
+        }
+    } catch (err) {
+        console.error('Failed to load event items:', err);
+        container.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                <h3>Error loading items</h3>
+                <p>Please try again later.</p>
+            </div>
+        `;
+    }
+}
+
+// Create HTML card for an event product
+function createEventItemCardHTML(product) {
+    const images = (product.event_product_images || [])
+        .sort((a, b) => a.display_order - b.display_order)
+        .map(img => img.storage_path);
+    const hasImages = images.length > 0;
+    const price = parseFloat(product.price) || 0;
+    const sizes = (product.event_product_sizes || []);
+    const availableSizes = sizes.filter(s => (s.stock - s.sold) > 0);
+
+    return `
+        <div class="item-image" style="position: relative;">
+            ${hasImages ?
+                `<div class="image-carousel" data-item-id="${product.id}">
+                    ${images.map((img, idx) => `
+                        <img src="${img}"
+                             alt="${product.name}"
+                             class="carousel-image ${idx === 0 ? 'active' : ''}"
+                             style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
+                    `).join('')}
+                    ${images.length > 1 ? `
+                        <button class="carousel-btn prev" onclick="prevImage(event, '${product.id}')" style="position:absolute;left:5px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.5rem;cursor:pointer;border-radius:3px;">‹</button>
+                        <button class="carousel-btn next" onclick="nextImage(event, '${product.id}')" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.5rem;cursor:pointer;border-radius:3px;">›</button>
+                        <div class="carousel-dots" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;">
+                            ${images.map((_, idx) => `<span class="dot ${idx === 0 ? 'active' : ''}" style="width:8px;height:8px;background:${idx === 0 ? 'var(--orange)' : 'rgba(255,255,255,0.5)'};border-radius:50%;display:inline-block;"></span>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>` :
+              `<span class="placeholder">${product.category || 'item'}</span>`}
+            <span class="event-item-badge">LIMITED EDITION</span>
+        </div>
+        <div class="item-details">
+            <h3>${product.name}</h3>
+            <p class="item-description">${(product.description || '').substring(0, 100)}${(product.description || '').length > 100 ? '...' : ''}</p>
+            <p class="item-price">$${price.toFixed(2)}</p>
+
+            ${availableSizes.length > 0 ? `
+                <div class="event-size-selector" data-product-id="${product.id}">
+                    <label style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; display: block;">Size:</label>
+                    <select class="event-size-select" id="eventSize_${product.id}" onchange="updateEventQtyMax('${product.id}')">
+                        ${availableSizes.map(s => `<option value="${s.size}" data-available="${s.stock - s.sold}">${s.size} (${s.stock - s.sold} left)</option>`).join('')}
+                    </select>
+                </div>
+                <div class="event-qty-selector">
+                    <label style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; display: block;">Qty:</label>
+                    <div class="qty-controls">
+                        <button type="button" onclick="adjustEventQty('${product.id}', -1)">−</button>
+                        <input type="number" id="eventQty_${product.id}" value="1" min="1" max="${availableSizes.length > 0 ? availableSizes[0].stock - availableSizes[0].sold : 1}" readonly>
+                        <button type="button" onclick="adjustEventQty('${product.id}', 1)">+</button>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button class="btn-secondary" onclick="addEventItemToCart('${product.id}')" style="flex: 1;">Add to Cart</button>
+                    <button class="btn-primary" onclick="buyNowEvent('${product.id}')" style="flex: 1;">Buy Now</button>
+                </div>
+            ` : `
+                <p style="color: var(--danger); font-weight: 600; margin-top: 1rem;">SOLD OUT</p>
+            `}
+        </div>
+    `;
+}
+
+// Qty controls for event items
+function adjustEventQty(productId, delta) {
+    const qtyInput = document.getElementById('eventQty_' + productId);
+    if (!qtyInput) return;
+    const max = parseInt(qtyInput.max) || 1;
+    let val = parseInt(qtyInput.value) || 1;
+    val += delta;
+    if (val < 1) val = 1;
+    if (val > max) val = max;
+    qtyInput.value = val;
+}
+
+function updateEventQtyMax(productId) {
+    const sizeSelect = document.getElementById('eventSize_' + productId);
+    const qtyInput = document.getElementById('eventQty_' + productId);
+    if (!sizeSelect || !qtyInput) return;
+    const selected = sizeSelect.options[sizeSelect.selectedIndex];
+    const available = parseInt(selected.getAttribute('data-available')) || 1;
+    qtyInput.max = available;
+    if (parseInt(qtyInput.value) > available) qtyInput.value = available;
+}
+
+// Add event item to cart
+async function addEventItemToCart(productId) {
+    const sizeSelect = document.getElementById('eventSize_' + productId);
+    const qtyInput = document.getElementById('eventQty_' + productId);
+    if (!sizeSelect || !qtyInput) return;
+
+    const size = sizeSelect.value;
+    const quantity = parseInt(qtyInput.value) || 1;
+    const cartItemKey = productId + '_' + size;
+
+    // Check if already in cart
+    const existing = cart.find(i => i.cartItemKey === cartItemKey);
+    if (existing) {
+        // Update quantity
+        const selected = sizeSelect.options[sizeSelect.selectedIndex];
+        const available = parseInt(selected.getAttribute('data-available')) || 1;
+        if (existing.quantity + quantity > available) {
+            alert(`Only ${available} available in size ${size}. You already have ${existing.quantity} in your cart.`);
+            return;
+        }
+        existing.quantity += quantity;
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartCount();
+        alert(`Updated "${existing.name}" (${size}) to qty ${existing.quantity} in cart!`);
+        return;
+    }
+
+    // Fetch product info
+    const { data: product, error } = await supabase
+        .from('event_products')
+        .select('*, event_product_images(storage_path, display_order)')
+        .eq('id', productId)
+        .single();
+
+    if (error || !product) {
+        alert('Could not find this product.');
+        return;
+    }
+
+    const images = (product.event_product_images || [])
+        .sort((a, b) => a.display_order - b.display_order)
+        .map(img => img.storage_path);
+
+    cart.push({
+        type: 'event',
+        eventProductId: productId,
+        cartItemKey: cartItemKey,
+        name: product.name,
+        price: parseFloat(product.price) || 0,
+        size: size,
+        quantity: quantity,
+        category: product.category,
+        images: images
+    });
+
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartCount();
+    alert(`"${product.name}" (${size}) x${quantity} added to cart!`);
+}
+
+async function buyNowEvent(productId) {
+    await addEventItemToCart(productId);
+    goToCheckout();
+}
