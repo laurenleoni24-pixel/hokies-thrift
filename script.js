@@ -1742,12 +1742,9 @@ async function processPayment(paymentIntentId, amount) {
         }));
         await supabase.from('order_items').insert(orderItems);
 
-        // Mark thrift products as sold
+        // Mark thrift products as sold via server-side function
         const purchasedIds = thriftItems.map(item => item.id);
-        await supabase
-            .from('products')
-            .update({ available: false })
-            .in('id', purchasedIds);
+        await supabase.rpc('mark_products_sold', { p_product_ids: purchasedIds });
     }
 
     // Insert event order items and decrement stock
@@ -1762,20 +1759,13 @@ async function processPayment(paymentIntentId, amount) {
         }));
         await supabase.from('event_order_items').insert(eventOrderItems);
 
-        // Increment sold count for each event item size
+        // Increment sold count for each event item size via server-side function
         for (const item of eventItems) {
-            const { data: sizeRow } = await supabase
-                .from('event_product_sizes')
-                .select('id, sold')
-                .eq('event_product_id', item.eventProductId)
-                .eq('size', item.size)
-                .single();
-            if (sizeRow) {
-                await supabase
-                    .from('event_product_sizes')
-                    .update({ sold: sizeRow.sold + item.quantity })
-                    .eq('id', sizeRow.id);
-            }
+            await supabase.rpc('increment_event_sold', {
+                p_event_product_id: item.eventProductId,
+                p_size: item.size,
+                p_quantity: item.quantity
+            });
         }
     }
 
@@ -1966,12 +1956,9 @@ async function completeOrder() {
 
     await supabase.from('order_items').insert(orderItems);
 
-    // Mark products as sold
+    // Mark products as sold via server-side function
     const purchasedIds = cart.map(item => item.id);
-    await supabase
-        .from('products')
-        .update({ available: false })
-        .in('id', purchasedIds);
+    await supabase.rpc('mark_products_sold', { p_product_ids: purchasedIds });
 
     // Show confirmation
     alert(`Order placed successfully! Order #${orderId.substring(0, 8)}\n\nWe'll send payment instructions to ${customerEmail}`);

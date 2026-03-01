@@ -395,6 +395,34 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Mark products as sold after purchase (bypasses RLS for anonymous buyers)
+CREATE OR REPLACE FUNCTION mark_products_sold(p_product_ids TEXT[])
+RETURNS JSONB AS $$
+DECLARE
+  v_count INT;
+BEGIN
+  UPDATE products
+  SET available = false
+  WHERE id = ANY(p_product_ids) AND available = true;
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+
+  RETURN jsonb_build_object('success', true, 'updated', v_count);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Update event product size sold counts after purchase
+CREATE OR REPLACE FUNCTION increment_event_sold(p_event_product_id UUID, p_size TEXT, p_quantity INT)
+RETURNS JSONB AS $$
+BEGIN
+  UPDATE event_product_sizes
+  SET sold = sold + p_quantity
+  WHERE event_product_id = p_event_product_id AND size = p_size;
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ============================================
 -- STORAGE BUCKETS (run in Supabase Dashboard or via API)
 -- ============================================
