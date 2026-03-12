@@ -1449,8 +1449,7 @@ footer {
    ============================== */
 
 .drop-banner {
-    background: rgba(74, 0, 36, 0.5);
-    border-bottom: 2px solid var(--orange);
+    background: linear-gradient(135deg, var(--maroon) 0%, var(--dark-maroon) 100%);
     color: white;
     overflow: hidden;
 }
