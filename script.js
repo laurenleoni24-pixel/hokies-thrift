@@ -2066,7 +2066,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 // Load upcoming drop banner on homepage
 async function loadDropBanner() {
     const banner = document.getElementById('dropBanner');
-    console.log('loadDropBanner called, banner element:', banner);
     if (!banner) return;
 
     try {
@@ -2078,37 +2077,10 @@ async function loadDropBanner() {
             .order('scheduled_date', { ascending: true })
             .limit(1);
 
-        // Also check for live drops
-        const { data: liveDrops, error: liveError } = await supabase
-            .from('drops')
-            .select('*')
-            .eq('status', 'live')
-            .order('scheduled_date', { ascending: false })
-            .limit(1);
-
-        console.log('Drop banner - scheduled:', scheduledDrops, 'error:', schedError);
-        console.log('Drop banner - live:', liveDrops, 'error:', liveError);
 
         const scheduled = (!schedError && scheduledDrops && scheduledDrops.length > 0) ? scheduledDrops[0] : null;
-        const live = (!liveError && liveDrops && liveDrops.length > 0) ? liveDrops[0] : null;
 
-        // Show live drop banner if one exists
-        if (live) {
-            banner.style.display = 'block';
-            banner.innerHTML = `
-                <div class="drop-banner-inner">
-                    <div class="drop-banner-content">
-                        <span class="drop-banner-badge drop-banner-live">LIVE NOW</span>
-                        <h2>${live.name}</h2>
-                        ${live.description ? `<p>${live.description}</p>` : ''}
-                        <button class="btn-primary" onclick="activateShopTab('available')">Shop Now</button>
-                    </div>
-                </div>
-            `;
-            return;
-        }
-
-        // Show upcoming scheduled drop banner
+        // Show upcoming scheduled drop banner only
         if (scheduled) {
             const dropDate = new Date(scheduled.scheduled_date);
             const timeLeft = dropDate - new Date();
