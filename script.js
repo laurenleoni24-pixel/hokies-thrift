@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateCartCount();
     loadHokiesEvents();
     loadEventBanner();
+    loadDropBanner();
 });
 
 // Navigate to a page by ID and update the URL
@@ -2057,6 +2058,101 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         }
     });
 });
+
+// ==============================
+// DROP BANNER ON HOMEPAGE
+// ==============================
+
+// Load upcoming drop banner on homepage
+async function loadDropBanner() {
+    const banner = document.getElementById('dropBanner');
+    console.log('loadDropBanner called, banner element:', banner);
+    if (!banner) return;
+
+    try {
+        // First check for upcoming scheduled drops
+        const { data: scheduledDrops, error: schedError } = await supabase
+            .from('drops')
+            .select('*')
+            .eq('status', 'scheduled')
+            .order('scheduled_date', { ascending: true })
+            .limit(1);
+
+        // Also check for live drops
+        const { data: liveDrops, error: liveError } = await supabase
+            .from('drops')
+            .select('*')
+            .eq('status', 'live')
+            .order('scheduled_date', { ascending: false })
+            .limit(1);
+
+        console.log('Drop banner - scheduled:', scheduledDrops, 'error:', schedError);
+        console.log('Drop banner - live:', liveDrops, 'error:', liveError);
+
+        const scheduled = (!schedError && scheduledDrops && scheduledDrops.length > 0) ? scheduledDrops[0] : null;
+        const live = (!liveError && liveDrops && liveDrops.length > 0) ? liveDrops[0] : null;
+
+        // Show live drop banner if one exists
+        if (live) {
+            banner.style.display = 'block';
+            banner.innerHTML = `
+                <div class="drop-banner-inner">
+                    <div class="drop-banner-content">
+                        <span class="drop-banner-badge drop-banner-live">LIVE NOW</span>
+                        <h2>${live.name}</h2>
+                        ${live.description ? `<p>${live.description}</p>` : ''}
+                        <button class="btn-primary" onclick="activateShopTab('available')">Shop Now</button>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Show upcoming scheduled drop banner
+        if (scheduled) {
+            const dropDate = new Date(scheduled.scheduled_date);
+            const timeLeft = dropDate - new Date();
+
+            // Don't show if the scheduled date already passed
+            if (timeLeft <= 0) {
+                banner.style.display = 'none';
+                return;
+            }
+
+            const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+            const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+
+            let countdownText;
+            if (daysLeft > 0) {
+                countdownText = `Drops in ${daysLeft} day${daysLeft > 1 ? 's' : ''}, ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}`;
+            } else if (hoursLeft > 0) {
+                countdownText = `Drops in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}, ${minutesLeft} min`;
+            } else {
+                countdownText = `Drops in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}`;
+            }
+
+            banner.style.display = 'block';
+            banner.innerHTML = `
+                <div class="drop-banner-inner">
+                    <div class="drop-banner-content">
+                        <span class="drop-banner-badge">UPCOMING DROP</span>
+                        <h2>${scheduled.name}</h2>
+                        ${scheduled.description ? `<p>${scheduled.description}</p>` : ''}
+                        <p class="drop-banner-countdown">${countdownText}</p>
+                        <p class="drop-banner-date">${dropDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at ${dropDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
+                        <button class="btn-primary" onclick="activateShopTab('upcoming')">View Details</button>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        banner.style.display = 'none';
+    } catch (err) {
+        console.error('Failed to load drop banner:', err);
+    }
+}
 
 // ==============================
 // EVENT COLLECTIONS (Limited Edition)
