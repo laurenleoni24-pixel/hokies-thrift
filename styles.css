@@ -148,7 +148,7 @@ main {
     position: relative;
     flex: 1;
     max-width: 450px;
-    height: 450px;
+    height: 300px;
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
@@ -794,7 +794,7 @@ footer {
 
     .pinterest-pin {
         min-width: 160px;
-        height: 260px;
+        height: 200px;
     }
 
     .nav-card-overlay h3 {
@@ -1460,7 +1460,7 @@ footer {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 1.25rem 2rem;
 }
 
 .drop-banner-content {
