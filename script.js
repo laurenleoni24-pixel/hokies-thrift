@@ -254,11 +254,26 @@ async function loadHokiesEvents() {
 }
 
 // Shop Tabs
-function initShopTabs() {
+async function initShopTabs() {
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
 
     loadShopInventory();
+
+    // Hide "Upcoming Drops" tab if none are scheduled
+    try {
+        const { data: scheduled } = await supabase
+            .from('drops')
+            .select('id')
+            .eq('status', 'scheduled')
+            .limit(1);
+        if (!scheduled || scheduled.length === 0) {
+            const upcomingTab = document.querySelector('.tab-btn[data-tab="upcoming"]');
+            if (upcomingTab) upcomingTab.style.display = 'none';
+        }
+    } catch (e) {
+        // If query fails, keep tab visible
+    }
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', function() {
