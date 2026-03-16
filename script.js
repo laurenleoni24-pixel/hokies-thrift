@@ -1161,6 +1161,153 @@ function closeProductDetail() {
     document.body.style.overflow = '';
 }
 
+// Event Product Detail Modal
+function openEventProductDetail(product) {
+    const images = (product.event_product_images || [])
+        .sort((a, b) => a.display_order - b.display_order)
+        .map(img => img.storage_path);
+    const hasImages = images.length > 0;
+    const price = parseFloat(product.price) || 0;
+    const sizes = (product.event_product_sizes || []);
+    const availableSizes = sizes.filter(s => (s.stock - s.sold) > 0);
+    const modalId = 'modal-event-' + product.id;
+
+    const modal = document.createElement('div');
+    modal.className = 'product-modal active';
+    modal.id = 'productDetailModal';
+    modal.onclick = function(e) {
+        if (e.target === modal) closeProductDetail();
+    };
+
+    modal.innerHTML = `
+        <div class="product-modal-content">
+            <span class="product-modal-close" onclick="closeProductDetail()">&times;</span>
+            <div class="product-modal-image">
+                ${hasImages ?
+                    `<div class="image-carousel" data-item-id="${modalId}" style="width:100%;height:100%;position:relative;">
+                        ${images.map((img, idx) => `
+                            <img src="${img}"
+                                 alt="${product.name}"
+                                 class="carousel-image ${idx === 0 ? 'active' : ''}"
+                                 style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
+                        `).join('')}
+                        ${images.length > 1 ? `
+                            <button class="carousel-btn prev" onclick="prevImage(event, '${modalId}')" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.75rem;cursor:pointer;border-radius:5px;font-size:1.2rem;">‹</button>
+                            <button class="carousel-btn next" onclick="nextImage(event, '${modalId}')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.75rem;cursor:pointer;border-radius:5px;font-size:1.2rem;">›</button>
+                            <div class="carousel-dots" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;">
+                                ${images.map((_, idx) => `<span class="dot ${idx === 0 ? 'active' : ''}" style="width:10px;height:10px;background:${idx === 0 ? 'var(--orange)' : 'rgba(255,255,255,0.5)'};border-radius:50%;display:inline-block;"></span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>` :
+                  `<span class="placeholder" style="font-size:1.5rem;">${product.category || 'item'}</span>`}
+            </div>
+            <div class="product-modal-details">
+                <span style="display:inline-block;background:var(--maroon);color:white;padding:0.15rem 0.5rem;border-radius:3px;font-size:0.7rem;font-weight:600;margin-bottom:0.5rem;">LIMITED EDITION</span>
+                <h2>${product.name}</h2>
+                <p class="product-modal-price">$${price.toFixed(2)}</p>
+                ${product.description ? `<p class="product-modal-desc">${product.description}</p>` : ''}
+                ${availableSizes.length > 0 ? `
+                    <div style="display:flex;gap:1rem;margin-bottom:1rem;">
+                        <div style="flex:1;">
+                            <label style="font-weight:600;font-size:0.9rem;margin-bottom:0.25rem;display:block;">Size:</label>
+                            <select class="event-size-select" id="eventSize_modal_${product.id}" onchange="updateEventQtyMaxModal('${product.id}')">
+                                ${availableSizes.map(s => `<option value="${s.size}" data-available="${s.stock - s.sold}">${s.size}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-weight:600;font-size:0.9rem;margin-bottom:0.25rem;display:block;">Qty:</label>
+                            <div class="qty-controls">
+                                <button type="button" onclick="adjustEventQtyModal('${product.id}', -1)">−</button>
+                                <input type="number" id="eventQty_modal_${product.id}" value="1" min="1" max="${availableSizes.length > 0 ? availableSizes[0].stock - availableSizes[0].sold : 1}" readonly>
+                                <button type="button" onclick="adjustEventQtyModal('${product.id}', 1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="product-modal-actions">
+                        <button class="btn-secondary" onclick="addEventItemToCartModal('${product.id}')">Add to Cart</button>
+                        <button class="btn-primary" onclick="buyNowEventModal('${product.id}')">Buy Now</button>
+                    </div>
+                ` : `
+                    <p style="color:#dc3545;font-weight:600;margin-top:1rem;">SOLD OUT</p>
+                `}
+            </div>
+        </div>
+    `;
+
+    // Store product data for modal functions
+    window._modalEventProduct = product;
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+}
+
+function adjustEventQtyModal(productId, delta) {
+    const qtyInput = document.getElementById('eventQty_modal_' + productId);
+    if (!qtyInput) return;
+    const newVal = parseInt(qtyInput.value) + delta;
+    if (newVal >= 1 && newVal <= parseInt(qtyInput.max)) {
+        qtyInput.value = newVal;
+    }
+}
+
+function updateEventQtyMaxModal(productId) {
+    const sizeSelect = document.getElementById('eventSize_modal_' + productId);
+    const qtyInput = document.getElementById('eventQty_modal_' + productId);
+    if (!sizeSelect || !qtyInput) return;
+    const selected = sizeSelect.options[sizeSelect.selectedIndex];
+    const available = parseInt(selected.getAttribute('data-available')) || 1;
+    qtyInput.max = available;
+    if (parseInt(qtyInput.value) > available) qtyInput.value = available;
+}
+
+function addEventItemToCartModal(productId) {
+    const product = window._modalEventProduct;
+    if (!product) return;
+
+    const sizeSelect = document.getElementById('eventSize_modal_' + productId);
+    const qtyInput = document.getElementById('eventQty_modal_' + productId);
+    if (!sizeSelect || !qtyInput) return;
+
+    const size = sizeSelect.value;
+    const quantity = parseInt(qtyInput.value) || 1;
+    const cartItemKey = productId + '_' + size;
+    const images = (product.event_product_images || [])
+        .sort((a, b) => a.display_order - b.display_order)
+        .map(img => img.storage_path);
+
+    const existing = cart.find(i => i.cartItemKey === cartItemKey);
+    if (existing) {
+        const selected = sizeSelect.options[sizeSelect.selectedIndex];
+        const available = parseInt(selected.getAttribute('data-available')) || 1;
+        if (existing.quantity + quantity > available) {
+            alert(`Only ${available} available in size ${size}.`);
+            return;
+        }
+        existing.quantity += quantity;
+    } else {
+        cart.push({
+            type: 'event',
+            eventProductId: productId,
+            cartItemKey: cartItemKey,
+            name: product.name,
+            price: parseFloat(product.price) || 0,
+            size: size,
+            quantity: quantity,
+            category: product.category,
+            images: images
+        });
+    }
+
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartCount();
+    closeProductDetail();
+    alert(`"${product.name}" (${size}) x${quantity} added to cart!`);
+}
+
+function buyNowEventModal(productId) {
+    addEventItemToCartModal(productId);
+    goToCheckout();
+}
+
 // Shopping Cart (stays in localStorage)
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 
@@ -2424,7 +2571,12 @@ async function loadEventShopItems() {
 
             products.forEach(product => {
                 const card = document.createElement('div');
-                card.className = 'item-card';
+                card.className = 'item-card event-item-card';
+                card.style.cursor = 'pointer';
+                card.onclick = function(e) {
+                    if (e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) return;
+                    openEventProductDetail(product);
+                };
                 card.innerHTML = createEventItemCardHTML(product);
                 container.appendChild(card);
             });
@@ -2481,10 +2633,12 @@ function createEventItemCardHTML(product) {
             <span class="event-item-badge">LIMITED EDITION</span>
         </div>
         <div class="item-details">
-            <h3>${product.name}</h3>
-            <p class="item-description">${(product.description || '').substring(0, 100)}${(product.description || '').length > 100 ? '...' : ''}</p>
+            <h3 class="hide-mobile">${product.name}</h3>
+            <p class="item-description hide-mobile">${(product.description || '').substring(0, 100)}${(product.description || '').length > 100 ? '...' : ''}</p>
             <p class="item-price">$${price.toFixed(2)}</p>
+            <p class="item-size show-mobile-only"><small>${availableSizes.length > 0 ? availableSizes.map(s => s.size).join('/') : 'SOLD OUT'}</small></p>
 
+            <div class="hide-mobile">
             ${availableSizes.length > 0 ? `
                 <div class="event-size-selector" data-product-id="${product.id}">
                     <label style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; display: block;">Size:</label>
@@ -2507,6 +2661,7 @@ function createEventItemCardHTML(product) {
             ` : `
                 <p style="color: var(--danger); font-weight: 600; margin-top: 1rem;">SOLD OUT</p>
             `}
+            </div>
         </div>
     `;
 }
