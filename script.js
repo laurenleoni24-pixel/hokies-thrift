@@ -1033,6 +1033,11 @@ async function loadShopInventory() {
                 const itemCard = document.createElement('div');
                 itemCard.className = 'item-card';
                 itemCard.dataset.itemId = item.id;
+                itemCard.onclick = function(e) {
+                    if (e.target.closest('button')) return;
+                    openProductDetail(item);
+                };
+                itemCard.style.cursor = 'pointer';
 
                 itemCard.innerHTML = createItemCardHTML(item);
                 itemsGrid.appendChild(itemCard);
@@ -1084,15 +1089,76 @@ function createItemCardHTML(item) {
         </div>
         <div class="item-details">
             <h3>${item.name}</h3>
-            <p class="item-description">${(item.description || '').substring(0, 100)}${(item.description || '').length > 100 ? '...' : ''}</p>
-            <p><small>Size: ${item.size || 'N/A'} | Condition: ${item.condition || 'N/A'}</small></p>
+            <p class="item-description hide-mobile">${(item.description || '').substring(0, 100)}${(item.description || '').length > 100 ? '...' : ''}</p>
+            <p class="hide-mobile"><small>Size: ${item.size || 'N/A'} | Condition: ${item.condition || 'N/A'}</small></p>
+            <p class="item-size show-mobile-only"><small>${item.size || ''}</small></p>
             <p class="item-price">$${price.toFixed(2)}</p>
-            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+            <div class="item-actions hide-mobile" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
                 <button class="btn-secondary" onclick="addToCart('${item.id}')" style="flex: 1;">Add to Cart</button>
                 <button class="btn-primary" onclick="buyNow('${item.id}')" style="flex: 1;">Buy Now</button>
             </div>
         </div>
     `;
+}
+
+// Product Detail Modal
+function openProductDetail(item) {
+    const images = (item.product_images || [])
+        .sort((a, b) => a.display_order - b.display_order)
+        .map(img => img.storage_path);
+    const hasImages = images.length > 0;
+    const price = parseFloat(item.price) || 0;
+
+    const modal = document.createElement('div');
+    modal.className = 'product-modal active';
+    modal.id = 'productDetailModal';
+    modal.onclick = function(e) {
+        if (e.target === modal) closeProductDetail();
+    };
+
+    modal.innerHTML = `
+        <div class="product-modal-content">
+            <span class="product-modal-close" onclick="closeProductDetail()">&times;</span>
+            <div class="product-modal-image">
+                ${hasImages ?
+                    `<div class="image-carousel" data-item-id="modal-${item.id}" style="width:100%;height:100%;position:relative;">
+                        ${images.map((img, idx) => `
+                            <img src="${img}"
+                                 alt="${item.name}"
+                                 class="carousel-image ${idx === 0 ? 'active' : ''}"
+                                 style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
+                        `).join('')}
+                        ${images.length > 1 ? `
+                            <button class="carousel-btn prev" onclick="prevImage(event, 'modal-${item.id}')" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.75rem;cursor:pointer;border-radius:5px;font-size:1.2rem;">‹</button>
+                            <button class="carousel-btn next" onclick="nextImage(event, 'modal-${item.id}')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.75rem;cursor:pointer;border-radius:5px;font-size:1.2rem;">›</button>
+                            <div class="carousel-dots" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;">
+                                ${images.map((_, idx) => `<span class="dot ${idx === 0 ? 'active' : ''}" style="width:10px;height:10px;background:${idx === 0 ? 'var(--orange)' : 'rgba(255,255,255,0.5)'};border-radius:50%;display:inline-block;"></span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>` :
+                  `<span class="placeholder" style="font-size:1.5rem;">${item.category || 'item'}</span>`}
+            </div>
+            <div class="product-modal-details">
+                <h2>${item.name}</h2>
+                <p class="product-modal-price">$${price.toFixed(2)}</p>
+                <p class="product-modal-meta">Size: ${item.size || 'N/A'} | Condition: ${item.condition || 'N/A'}</p>
+                ${item.description ? `<p class="product-modal-desc">${item.description}</p>` : ''}
+                <div class="product-modal-actions">
+                    <button class="btn-secondary" onclick="addToCart('${item.id}'); closeProductDetail();">Add to Cart</button>
+                    <button class="btn-primary" onclick="buyNow('${item.id}'); closeProductDetail();">Buy Now</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+}
+
+function closeProductDetail() {
+    const modal = document.getElementById('productDetailModal');
+    if (modal) modal.remove();
+    document.body.style.overflow = '';
 }
 
 // Shopping Cart (stays in localStorage)
