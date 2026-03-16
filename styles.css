@@ -809,6 +809,18 @@ footer {
         position: relative;
     }
 
+    .shop-tabs {
+        gap: 0.25rem;
+    }
+
+    .tab-btn {
+        padding: 0.75rem 0.75rem;
+        font-size: 0.9rem;
+        flex: 1;
+        text-align: center;
+        white-space: nowrap;
+    }
+
     .pinterest-track {
         flex-wrap: wrap;
     }
