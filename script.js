@@ -1550,8 +1550,16 @@ async function setupStripeCheckout(amount) {
             expressCheckoutElement.mount('#express-checkout-element');
 
             expressCheckoutElement.on('ready', function(event) {
+                const expressMsg = document.getElementById('express-checkout-message');
+                console.log('Express Checkout ready event:', JSON.stringify(event));
                 if (event.availablePaymentMethods) {
                     document.getElementById('express-divider').style.display = 'block';
+                } else {
+                    // Debug: show why it's not available
+                    expressMsg.style.display = 'block';
+                    expressMsg.style.color = '#999';
+                    expressMsg.style.fontSize = '0.8rem';
+                    expressMsg.textContent = 'Apple Pay / Google Pay not available on this device. Available methods: ' + JSON.stringify(event.availablePaymentMethods);
                 }
             });
 
@@ -1582,6 +1590,11 @@ async function setupStripeCheckout(amount) {
             });
         } catch (err) {
             console.warn('Express checkout element not available:', err);
+            const expressMsg = document.getElementById('express-checkout-message');
+            expressMsg.style.display = 'block';
+            expressMsg.style.color = '#dc3545';
+            expressMsg.style.fontSize = '0.8rem';
+            expressMsg.textContent = 'Express checkout error: ' + err.message;
         }
     }
 
