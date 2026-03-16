@@ -469,7 +469,11 @@ main {
     }
 
     .item-details {
-        padding: 0.5rem;
+        padding: 0.3rem 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: nowrap;
     }
 
     .item-details h3 {
@@ -486,6 +490,11 @@ main {
     .item-price {
         font-size: 0.85rem;
         margin-bottom: 0;
+        font-weight: bold;
+    }
+
+    .item-size {
+        margin: 0;
     }
 
     .item-size small {
