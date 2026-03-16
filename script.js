@@ -1016,27 +1016,32 @@ async function loadShopInventory() {
             }
         });
 
-        // Store grouped data for filtering
-        window._shopDropGroups = groupedByDrop;
+        itemsGrid.innerHTML = '';
 
-        // Build drop filter buttons
-        const dropKeys = Object.keys(groupedByDrop);
-        let filtersHTML = '';
-        if (dropKeys.length > 1) {
-            filtersHTML = `<div class="drop-filters" style="grid-column: 1/-1;">
-                <button class="drop-filter-btn active" onclick="filterShopByDrop('all')">All</button>
-                ${dropKeys.map(key => {
-                    const d = groupedByDrop[key].drop;
-                    return `<button class="drop-filter-btn" onclick="filterShopByDrop('${d.id}')">${d.name}</button>`;
-                }).join('')}
-            </div>`;
-        }
+        Object.values(groupedByDrop).forEach(({ drop, items }) => {
+            const dropHeader = document.createElement('div');
+            dropHeader.className = 'drop-header';
+            dropHeader.style.gridColumn = '1 / -1';
+            dropHeader.innerHTML = `
+                <h2 class="drop-name">${drop.name}</h2>
+                ${drop.description ? `<p class="drop-description">${drop.description}</p>` : ''}
+                <span class="live-badge">🔴 LIVE NOW</span>
+            `;
+            itemsGrid.appendChild(dropHeader);
 
-        itemsGrid.innerHTML = filtersHTML;
+            items.forEach(item => {
+                const itemCard = document.createElement('div');
+                itemCard.className = 'item-card';
+                itemCard.dataset.itemId = item.id;
+                itemCard.onclick = function(e) {
+                    if (e.target.closest('button')) return;
+                    openProductDetail(item);
+                };
+                itemCard.style.cursor = 'pointer';
 
-        renderShopItems('all');
-
-        // Also update cachedDrops is handled below already
+                itemCard.innerHTML = createItemCardHTML(item);
+                itemsGrid.appendChild(itemCard);
+            });
         });
 
         // Also update cachedDrops for countdown
@@ -1051,61 +1056,6 @@ async function loadShopInventory() {
             </div>
         `;
     }
-}
-
-function filterShopByDrop(dropId) {
-    // Update active button
-    document.querySelectorAll('.drop-filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-
-    // Remove existing items (keep the filter buttons)
-    const itemsGrid = document.getElementById('availableItems');
-    const filters = itemsGrid.querySelector('.drop-filters');
-    itemsGrid.innerHTML = '';
-    if (filters) itemsGrid.appendChild(filters);
-
-    renderShopItems(dropId);
-}
-
-function renderShopItems(dropId) {
-    const itemsGrid = document.getElementById('availableItems');
-    const groupedByDrop = window._shopDropGroups;
-    if (!groupedByDrop) return;
-
-    const dropKeys = dropId === 'all' ? Object.keys(groupedByDrop) : [dropId];
-
-    dropKeys.forEach(key => {
-        const group = groupedByDrop[key];
-        if (!group) return;
-        const { drop, items } = group;
-
-        // Only show drop header if viewing all drops
-        if (dropId === 'all') {
-            const dropHeader = document.createElement('div');
-            dropHeader.className = 'drop-header';
-            dropHeader.style.gridColumn = '1 / -1';
-            dropHeader.innerHTML = `
-                <h2 class="drop-name">${drop.name}</h2>
-                ${drop.description ? `<p class="drop-description">${drop.description}</p>` : ''}
-                <span class="live-badge">LIVE NOW</span>
-            `;
-            itemsGrid.appendChild(dropHeader);
-        }
-
-        items.forEach(item => {
-            const itemCard = document.createElement('div');
-            itemCard.className = 'item-card';
-            itemCard.dataset.itemId = item.id;
-            itemCard.onclick = function(e) {
-                if (e.target.closest('button')) return;
-                openProductDetail(item);
-            };
-            itemCard.style.cursor = 'pointer';
-
-            itemCard.innerHTML = createItemCardHTML(item);
-            itemsGrid.appendChild(itemCard);
-        });
-    });
 }
 
 // Helper function to create item card HTML
