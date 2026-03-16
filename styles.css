@@ -796,11 +796,17 @@ footer {
         text-align: center;
     }
 
-    .nav-links .cart-btn {
+    .nav-links li:last-child {
         display: flex;
         justify-content: center;
-        width: 100%;
+    }
+
+    .nav-links .cart-btn {
+        display: inline-flex;
+        justify-content: center;
+        width: auto;
         padding: 1rem;
+        position: relative;
     }
 
     .pinterest-track {
