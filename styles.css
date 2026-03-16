@@ -1881,6 +1881,37 @@ footer {
     margin: 0;
 }
 
+/* Responsive Event Size/Qty Selectors */
+@media (max-width: 768px) {
+    .event-size-selector,
+    .event-qty-selector {
+        display: inline-block;
+        width: 48%;
+        vertical-align: top;
+        margin-top: 0.5rem;
+    }
+
+    .event-size-selector {
+        margin-right: 4%;
+    }
+
+    .event-size-select {
+        font-size: 0.8rem;
+        padding: 0.35rem;
+    }
+
+    .qty-controls button {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.9rem;
+    }
+
+    .qty-controls input {
+        width: 30px;
+        font-size: 0.85rem;
+        padding: 0.3rem 0;
+    }
+}
+
 /* Responsive Event Banner */
 @media (max-width: 768px) {
     .event-banner-inner {
