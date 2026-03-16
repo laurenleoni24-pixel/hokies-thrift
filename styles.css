@@ -472,7 +472,7 @@ main {
         padding: 0.3rem 0.5rem;
         display: flex;
         align-items: center;
-        gap: 0.4rem;
+        justify-content: space-between;
         flex-wrap: nowrap;
     }
 
