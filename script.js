@@ -1088,7 +1088,7 @@ function createItemCardHTML(item) {
               `<span class="placeholder">${item.category || 'item'}</span>`}
         </div>
         <div class="item-details">
-            <h3>${item.name}</h3>
+            <h3 class="hide-mobile">${item.name}</h3>
             <p class="item-description hide-mobile">${(item.description || '').substring(0, 100)}${(item.description || '').length > 100 ? '...' : ''}</p>
             <p class="hide-mobile"><small>Size: ${item.size || 'N/A'} | Condition: ${item.condition || 'N/A'}</small></p>
             <p class="item-size show-mobile-only"><small>${item.size || ''}</small></p>
