@@ -1436,15 +1436,27 @@ function loadCheckoutPage() {
                         </div>
                     </div>
 
-                    <div class="checkout-field">
-                        <label>Card Details *</label>
-                        <div id="card-element"></div>
-                        <div id="card-errors"></div>
-                    </div>
+                    <!-- Express Checkout (Apple Pay / Google Pay) -->
+                    <div id="express-checkout-element"></div>
+                    <div id="express-checkout-message" style="display:none; text-align:center; color:#28a745; padding:0.5rem; font-weight:600;"></div>
 
-                    <button type="submit" id="submit-button" class="checkout-submit">
-                        Pay $${grandTotal.toFixed(2)}
-                    </button>
+                    <div id="card-payment-section">
+                        <div id="express-divider" style="display:none; text-align:center; margin:1rem 0; color:#999; font-size:0.85rem;">
+                            <span style="display:inline-block; border-top:1px solid #ddd; width:40%; vertical-align:middle;"></span>
+                            <span style="display:inline-block; padding:0 0.75rem;">Or pay with card</span>
+                            <span style="display:inline-block; border-top:1px solid #ddd; width:40%; vertical-align:middle;"></span>
+                        </div>
+
+                        <div class="checkout-field">
+                            <label>Card Details *</label>
+                            <div id="card-element"></div>
+                            <div id="card-errors"></div>
+                        </div>
+
+                        <button type="submit" id="submit-button" class="checkout-submit">
+                            Pay $${grandTotal.toFixed(2)}
+                        </button>
+                    </div>
 
                     <div class="checkout-secured">
                         <svg style="width: 16px; height: 16px; vertical-align: middle;" viewBox="0 0 24 24" fill="currentColor">
@@ -1482,7 +1494,7 @@ function loadCheckoutPage() {
     }
 }
 
-function setupStripeCheckout(amount) {
+async function setupStripeCheckout(amount) {
     initializeStripe();
 
     if (!stripe) {
@@ -1499,8 +1511,83 @@ function setupStripeCheckout(amount) {
         return;
     }
 
-    const elements = stripe.elements();
-    const cardElement = elements.create('card', {
+    // Create PaymentIntent upfront (needed for Express Checkout Element)
+    let clientSecret = null;
+    try {
+        const intentResponse = await fetch(`${WORKER_URL}/create-payment-intent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: amount })
+        });
+        const intentData = await intentResponse.json();
+        if (intentResponse.ok && intentData.clientSecret) {
+            clientSecret = intentData.clientSecret;
+        }
+    } catch (err) {
+        console.warn('Failed to create payment intent for express checkout:', err);
+    }
+
+    // Mount Express Checkout Element (Apple Pay / Google Pay) if we have a client secret
+    if (clientSecret) {
+        try {
+            const expressElements = stripe.elements({
+                clientSecret: clientSecret,
+                appearance: {
+                    theme: 'stripe',
+                    variables: {
+                        colorPrimary: '#630031',
+                    }
+                }
+            });
+
+            const expressCheckoutElement = expressElements.create('expressCheckout', {
+                buttonType: {
+                    applePay: 'buy',
+                    googlePay: 'buy',
+                }
+            });
+
+            expressCheckoutElement.mount('#express-checkout-element');
+
+            expressCheckoutElement.on('ready', function(event) {
+                if (event.availablePaymentMethods) {
+                    document.getElementById('express-divider').style.display = 'block';
+                }
+            });
+
+            expressCheckoutElement.on('confirm', async function(event) {
+                const expressMsg = document.getElementById('express-checkout-message');
+                try {
+                    const { error, paymentIntent } = await stripe.confirmPayment({
+                        elements: expressElements,
+                        confirmParams: {},
+                        redirect: 'if_required',
+                    });
+
+                    if (error) {
+                        expressMsg.style.display = 'block';
+                        expressMsg.style.color = '#dc3545';
+                        expressMsg.textContent = error.message;
+                        return;
+                    }
+
+                    if (paymentIntent && paymentIntent.status === 'succeeded') {
+                        processPayment(paymentIntent.id, amount);
+                    }
+                } catch (err) {
+                    expressMsg.style.display = 'block';
+                    expressMsg.style.color = '#dc3545';
+                    expressMsg.textContent = err.message || 'Payment failed. Please try again.';
+                }
+            });
+        } catch (err) {
+            console.warn('Express checkout element not available:', err);
+        }
+    }
+
+    // Standard card element (always available as fallback)
+    const cardElements = stripe.elements();
+    const cardElement = cardElements.create('card', {
         style: {
             base: {
                 fontSize: '16px',
@@ -1552,7 +1639,7 @@ function setupStripeCheckout(amount) {
                 return;
             }
 
-            // Step 2: Create PaymentIntent via worker
+            // Step 2: Create a new PaymentIntent for card payment
             const intentResponse = await fetch(`${WORKER_URL}/create-payment-intent`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
