@@ -772,6 +772,7 @@ footer {
         right: 0;
         background: var(--maroon);
         flex-direction: column;
+        align-items: center;
         padding: 1rem;
         gap: 0;
         max-height: 0;
@@ -783,9 +784,23 @@ footer {
         max-height: 300px;
     }
 
+    .nav-links li {
+        width: 100%;
+        text-align: center;
+    }
+
     .nav-links a {
         padding: 1rem;
         border-radius: 0;
+        display: block;
+        text-align: center;
+    }
+
+    .nav-links .cart-btn {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        padding: 1rem;
     }
 
     .pinterest-track {
