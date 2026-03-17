@@ -259,6 +259,7 @@ async function initShopTabs() {
     const tabContents = document.querySelectorAll('.tab-content');
 
     loadShopInventory();
+    loadEventShopItems();
 
     // Hide "Upcoming Drops" tab if none are scheduled
     try {
