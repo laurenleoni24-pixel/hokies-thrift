@@ -412,7 +412,7 @@ main {
 .shop-tabs {
     display: flex;
     gap: 1rem;
-    margin: 2rem 0;
+    margin: 0 0 2rem 0;
     border-bottom: 2px solid var(--maroon);
 }
 
