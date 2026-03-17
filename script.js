@@ -1121,12 +1121,12 @@ function openProductDetail(item) {
             <span class="product-modal-close" onclick="closeProductDetail()">&times;</span>
             <div class="product-modal-image">
                 ${hasImages ?
-                    `<div class="image-carousel" data-item-id="modal-${item.id}" style="width:100%;height:100%;position:relative;">
+                    `<div class="image-carousel" data-item-id="modal-${item.id}" style="width:100%;position:relative;">
                         ${images.map((img, idx) => `
                             <img src="${img}"
                                  alt="${item.name}"
                                  class="carousel-image ${idx === 0 ? 'active' : ''}"
-                                 style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
+                                 style="width:100%;${idx === 0 ? 'position:relative;display:block;' : 'position:absolute;top:0;left:0;height:100%;'}object-fit:cover;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
                         `).join('')}
                         ${images.length > 1 ? `
                             <button class="carousel-btn prev" onclick="prevImage(event, 'modal-${item.id}')" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.75rem;cursor:pointer;border-radius:5px;font-size:1.2rem;">‹</button>
@@ -1184,12 +1184,12 @@ function openEventProductDetail(product) {
             <span class="product-modal-close" onclick="closeProductDetail()">&times;</span>
             <div class="product-modal-image">
                 ${hasImages ?
-                    `<div class="image-carousel" data-item-id="${modalId}" style="width:100%;height:100%;position:relative;">
+                    `<div class="image-carousel" data-item-id="${modalId}" style="width:100%;position:relative;">
                         ${images.map((img, idx) => `
                             <img src="${img}"
                                  alt="${product.name}"
                                  class="carousel-image ${idx === 0 ? 'active' : ''}"
-                                 style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
+                                 style="width:100%;${idx === 0 ? 'position:relative;display:block;' : 'position:absolute;top:0;left:0;height:100%;'}object-fit:cover;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
                         `).join('')}
                         ${images.length > 1 ? `
                             <button class="carousel-btn prev" onclick="prevImage(event, '${modalId}')" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.75rem;cursor:pointer;border-radius:5px;font-size:1.2rem;">‹</button>
