@@ -1155,14 +1155,14 @@ async function viewOrderDetail(orderId) {
     if (productIds.length > 0) {
         const { data: images } = await supabase
             .from('product_images')
-            .select('product_id, image_url')
+            .select('product_id, storage_path')
             .in('product_id', productIds)
             .order('display_order', { ascending: true });
 
         // Get first image for each product
         (images || []).forEach(img => {
             if (!productImageMap[img.product_id]) {
-                productImageMap[img.product_id] = img.image_url;
+                productImageMap[img.product_id] = img.storage_path;
             }
         });
     }
@@ -1176,14 +1176,14 @@ async function viewOrderDetail(orderId) {
     if (eventProductIds.length > 0) {
         const { data: eventImages } = await supabase
             .from('event_product_images')
-            .select('event_product_id, image_url')
+            .select('event_product_id, storage_path')
             .in('event_product_id', eventProductIds)
             .order('display_order', { ascending: true });
 
         // Get first image for each event product
         (eventImages || []).forEach(img => {
             if (!eventImageMap[img.event_product_id]) {
-                eventImageMap[img.event_product_id] = img.image_url;
+                eventImageMap[img.event_product_id] = img.storage_path;
             }
         });
     }
