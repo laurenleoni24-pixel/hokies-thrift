@@ -1149,8 +1149,44 @@ async function viewOrderDetail(orderId) {
     const { data: order } = await supabase.from('orders').select('*, order_items(*)').eq('id', orderId).single();
     if (!order) return;
 
+    // Fetch product images for regular items
+    const productIds = (order.order_items || []).map(item => item.product_id).filter(Boolean);
+    let productImageMap = {};
+    if (productIds.length > 0) {
+        const { data: images } = await supabase
+            .from('product_images')
+            .select('product_id, image_url')
+            .in('product_id', productIds)
+            .order('display_order', { ascending: true });
+
+        // Get first image for each product
+        (images || []).forEach(img => {
+            if (!productImageMap[img.product_id]) {
+                productImageMap[img.product_id] = img.image_url;
+            }
+        });
+    }
+
     // Also fetch event order items
     const { data: eventItems } = await supabase.from('event_order_items').select('*').eq('order_id', orderId);
+
+    // Fetch event product images
+    const eventProductIds = (eventItems || []).map(item => item.event_product_id).filter(Boolean);
+    let eventImageMap = {};
+    if (eventProductIds.length > 0) {
+        const { data: eventImages } = await supabase
+            .from('event_product_images')
+            .select('event_product_id, image_url')
+            .in('event_product_id', eventProductIds)
+            .order('display_order', { ascending: true });
+
+        // Get first image for each event product
+        (eventImages || []).forEach(img => {
+            if (!eventImageMap[img.event_product_id]) {
+                eventImageMap[img.event_product_id] = img.image_url;
+            }
+        });
+    }
 
     const shippingAddr = order.shipping_full_address || `${order.shipping_street || ''}${order.shipping_apt ? ', ' + order.shipping_apt : ''}, ${order.shipping_city || ''}, ${order.shipping_state || ''} ${order.shipping_zip || ''}`;
 
@@ -1173,10 +1209,36 @@ async function viewOrderDetail(orderId) {
         ` : ''}
 
         <h4>Items:</h4>
-        <ul>${(order.order_items || []).map(item => `<li>${escapeHtml(item.name)} - $${parseFloat(item.price).toFixed(2)}</li>`).join('')}</ul>
+        <ul style="list-style: none; padding: 0;">
+            ${(order.order_items || []).map(item => {
+                const imageUrl = productImageMap[item.product_id];
+                return `
+                    <li style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid #eee;">
+                        ${imageUrl ? `<img src="${imageUrl}" alt="${escapeHtml(item.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">` : '<div style="width: 60px; height: 60px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999;">No Image</div>'}
+                        <div style="flex: 1;">
+                            <div style="font-weight: 500;">${escapeHtml(item.name)}</div>
+                            <div style="color: #666; font-size: 0.9em;">$${parseFloat(item.price).toFixed(2)}</div>
+                        </div>
+                    </li>
+                `;
+            }).join('')}
+        </ul>
         ${eventItems && eventItems.length > 0 ? `
             <h4>Event Products:</h4>
-            <ul>${eventItems.map(item => `<li>${escapeHtml(item.name)} (${item.size}) x${item.quantity} - $${(parseFloat(item.price) * item.quantity).toFixed(2)}</li>`).join('')}</ul>
+            <ul style="list-style: none; padding: 0;">
+                ${eventItems.map(item => {
+                    const imageUrl = eventImageMap[item.event_product_id];
+                    return `
+                        <li style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid #eee;">
+                            ${imageUrl ? `<img src="${imageUrl}" alt="${escapeHtml(item.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">` : '<div style="width: 60px; height: 60px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999;">No Image</div>'}
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500;">${escapeHtml(item.name)}</div>
+                                <div style="color: #666; font-size: 0.9em;">(${item.size}) x${item.quantity} - $${(parseFloat(item.price) * item.quantity).toFixed(2)}</div>
+                            </div>
+                        </li>
+                    `;
+                }).join('')}
+            </ul>
         ` : ''}
         <p><strong>Total:</strong> $${parseFloat(order.total).toFixed(2)}</p>
         <p><strong>Status:</strong> <span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span></p>
