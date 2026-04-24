@@ -2728,14 +2728,14 @@ async function loadEventShopItems() {
             const products = col.event_products || [];
             if (products.length === 0) return;
 
-            // Collection header
+            // Collection header — compact label, not a full-bleed banner
             const header = document.createElement('div');
-            header.className = 'drop-header';
+            header.className = 'event-collection-header';
             header.style.gridColumn = '1 / -1';
             header.innerHTML = `
-                <h2 class="drop-name">${col.name}</h2>
-                ${col.description ? `<p class="drop-description">${col.description}</p>` : ''}
-                <span class="event-collection-badge">LIMITED EDITION</span>
+                <span class="event-collection-label">LIMITED EDITION</span>
+                <span class="event-collection-name">${col.name}</span>
+                ${col.description ? `<span class="event-collection-desc">${col.description}</span>` : ''}
             `;
             container.appendChild(header);
 
@@ -2782,15 +2782,19 @@ function createEventItemCardHTML(product) {
     const availableSizes = sizes.filter(s => (s.stock - s.sold) > 0);
 
     return `
-        <div class="item-image" style="position: relative;">
+        <div class="item-image item-image--loading" style="position: relative;">
+            <span class="item-badge badge-new">Limited Edition</span>
             ${hasImages ?
                 `<div class="image-carousel" data-item-id="${product.id}">
-                    ${images.map((img, idx) => `
-                        <img src="${img}"
-                             alt="${product.name}"
+                    ${images.map((img, idx) => {
+                        const optimized = getOptimizedImageUrl(img, 600, 75);
+                        const srcAttr = idx === 0
+                            ? `src="${optimized}" onload="this.closest('.item-image').classList.remove('item-image--loading')"`
+                            : `data-src="${optimized}"`;
+                        return `<img ${srcAttr} alt="${product.name}" loading="lazy" decoding="async"
                              class="carousel-image ${idx === 0 ? 'active' : ''}"
-                             style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
-                    `).join('')}
+                             style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">`;
+                    }).join('')}
                     ${images.length > 1 ? `
                         <button class="carousel-btn prev" onclick="prevImage(event, '${product.id}')" style="position:absolute;left:5px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.5rem;cursor:pointer;border-radius:3px;">‹</button>
                         <button class="carousel-btn next" onclick="nextImage(event, '${product.id}')" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.5rem;cursor:pointer;border-radius:3px;">›</button>
@@ -2800,36 +2804,26 @@ function createEventItemCardHTML(product) {
                     ` : ''}
                 </div>` :
               `<span class="placeholder">${product.category || 'item'}</span>`}
-            <span class="event-item-badge">LIMITED EDITION</span>
         </div>
         <div class="item-details">
-            <h3 class="hide-mobile">${product.name}</h3>
-            <p class="item-description hide-mobile">${(product.description || '').substring(0, 100)}${(product.description || '').length > 100 ? '...' : ''}</p>
+            <h3>${product.name}</h3>
             <p class="item-price">$${price.toFixed(2)}</p>
-            <p class="item-size show-mobile-only"><small>${availableSizes.length > 0 ? availableSizes.map(s => s.size).join('/') : 'SOLD OUT'}</small></p>
-
-            <div class="hide-mobile">
+            <div class="item-actions" style="display:flex;flex-direction:column;gap:0.4rem;margin-top:auto;">
             ${availableSizes.length > 0 ? `
-                <div class="event-size-selector" data-product-id="${product.id}">
-                    <label style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; display: block;">Size:</label>
+                <div class="event-size-row">
                     <select class="event-size-select" id="eventSize_${product.id}" onchange="updateEventQtyMax('${product.id}')">
-                        ${availableSizes.map(s => `<option value="${s.size}" data-available="${s.stock - s.sold}">${s.size}</option>`).join('')}
+                        ${availableSizes.map(s => `<option value="${s.size}" data-available="${s.stock - s.sold}">${s.size} (${s.stock - s.sold} left)</option>`).join('')}
                     </select>
-                </div>
-                <div class="event-qty-selector">
-                    <label style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; display: block;">Qty:</label>
                     <div class="qty-controls">
                         <button type="button" onclick="adjustEventQty('${product.id}', -1)">−</button>
-                        <input type="number" id="eventQty_${product.id}" value="1" min="1" max="${availableSizes.length > 0 ? availableSizes[0].stock - availableSizes[0].sold : 1}" readonly>
+                        <input type="number" id="eventQty_${product.id}" value="1" min="1" max="${availableSizes[0].stock - availableSizes[0].sold}" readonly>
                         <button type="button" onclick="adjustEventQty('${product.id}', 1)">+</button>
                     </div>
                 </div>
-                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                    <button class="btn-secondary" onclick="addEventItemToCart('${product.id}')" style="flex: 1;">Add to Cart</button>
-                    <button class="btn-primary" onclick="buyNowEvent('${product.id}')" style="flex: 1;">Buy Now</button>
-                </div>
+                <button class="btn-secondary" onclick="addEventItemToCart('${product.id}')" style="width:100%;padding:0.55rem;">Add to Cart</button>
+                <button class="btn-primary" onclick="buyNowEvent('${product.id}')" style="width:100%;padding:0.55rem;">Buy Now</button>
             ` : `
-                <p style="color: var(--danger); font-weight: 600; margin-top: 1rem;">SOLD OUT</p>
+                <p class="sold-out-label">SOLD OUT</p>
             `}
             </div>
         </div>
