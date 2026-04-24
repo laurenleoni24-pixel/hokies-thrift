@@ -7,6 +7,14 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // Re-assign so all code can use `supabase` as the client
 window.supabase = supabaseClient;
 
+// Convert a Supabase Storage public URL to a resized/optimized URL via the transform API.
+// width: px wide to request (600 = good for 2x retina on 300px cards)
+function getOptimizedImageUrl(url, width = 600, quality = 75) {
+    if (!url || !url.includes('/storage/v1/object/public/')) return url;
+    return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+        + `?width=${width}&quality=${quality}&resize=cover`;
+}
+
 // Image upload helper
 async function uploadImage(bucket, file, path) {
     const { data, error } = await supabase.storage

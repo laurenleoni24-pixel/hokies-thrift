@@ -1222,16 +1222,24 @@ function createItemCardHTML(item) {
         : `<span class="item-badge badge-one-of-one">1 of 1</span>`;
 
     return `
-        <div class="item-image" style="position: relative;">
+        <div class="item-image item-image--loading" style="position: relative;">
             ${badge}
             ${hasImages ?
                 `<div class="image-carousel" data-item-id="${item.id}">
-                    ${images.map((img, idx) => `
-                        <img src="${img}"
+                    ${images.map((img, idx) => {
+                        const optimized = getOptimizedImageUrl(img, 600, 75);
+                        // Only set src on the first (visible) image; defer the rest with data-src
+                        const srcAttr = idx === 0
+                            ? `src="${optimized}" onload="this.closest('.item-image').classList.remove('item-image--loading')"`
+                            : `data-src="${optimized}"`;
+                        return `
+                        <img ${srcAttr}
                              alt="${item.name}"
+                             loading="lazy"
+                             decoding="async"
                              class="carousel-image ${idx === 0 ? 'active' : ''}"
-                             style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">
-                    `).join('')}
+                             style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;opacity:${idx === 0 ? 1 : 0};transition:opacity 0.3s;">`;
+                    }).join('')}
                     ${images.length > 1 ? `
                         <button class="carousel-btn prev" onclick="prevImage(event, '${item.id}')" style="position:absolute;left:5px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.5rem;cursor:pointer;border-radius:3px;">‹</button>
                         <button class="carousel-btn next" onclick="nextImage(event, '${item.id}')" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:0.5rem;cursor:pointer;border-radius:3px;">›</button>
@@ -2481,6 +2489,13 @@ async function loadSyndicatedListingsToFrontend() {
 // Image Carousel Functions
 let currentImageIndex = {};
 
+function revealCarouselImage(img) {
+    if (img.dataset.src) {
+        img.src = img.dataset.src;
+        delete img.dataset.src;
+    }
+}
+
 function nextImage(event, itemId) {
     event.stopPropagation();
     const carousel = document.querySelector(`.image-carousel[data-item-id="${itemId}"]`);
@@ -2498,6 +2513,7 @@ function nextImage(event, itemId) {
 
     currentImageIndex[itemId] = (currentImageIndex[itemId] + 1) % images.length;
 
+    revealCarouselImage(images[currentImageIndex[itemId]]);
     images[currentImageIndex[itemId]].style.opacity = '1';
     if (dots[currentImageIndex[itemId]]) {
         dots[currentImageIndex[itemId]].style.background = 'var(--orange)';
@@ -2521,6 +2537,7 @@ function prevImage(event, itemId) {
 
     currentImageIndex[itemId] = (currentImageIndex[itemId] - 1 + images.length) % images.length;
 
+    revealCarouselImage(images[currentImageIndex[itemId]]);
     images[currentImageIndex[itemId]].style.opacity = '1';
     if (dots[currentImageIndex[itemId]]) {
         dots[currentImageIndex[itemId]].style.background = 'var(--orange)';
