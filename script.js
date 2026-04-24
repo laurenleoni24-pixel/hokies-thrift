@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadHokiesEvents();
     loadEventBanner();
     loadDropBanner();
+    loadFeaturedProducts();
 });
 
 // Navigate to a page by ID and update the URL
@@ -137,18 +138,16 @@ async function updateUpcomingDrops() {
         .slice(0, 3);
 
     const container = document.getElementById('upcomingDropsCountdowns');
+    const countdownCol = document.getElementById('dropCountdownCol');
 
     if (!container) return;
 
     if (scheduledDrops.length === 0) {
-        container.innerHTML = `
-            <div class="no-upcoming-drops">
-                <p>No upcoming drops scheduled</p>
-                <p>Check back soon or follow us on Instagram for updates!</p>
-            </div>
-        `;
+        if (countdownCol) countdownCol.style.display = 'none';
         return;
     }
+
+    if (countdownCol) countdownCol.style.display = 'block';
 
     container.innerHTML = scheduledDrops.map(drop => {
         const now = new Date().getTime();
@@ -941,6 +940,87 @@ async function createShippingLabel(order) {
     }
 }
 
+// Drop notification email signup
+async function handleDropNotifySignup(e) {
+    e.preventDefault();
+    const email = document.getElementById('notifyEmail').value.trim();
+    const msg = document.getElementById('notifyMessage');
+    const btn = e.target.querySelector('button[type="submit"]');
+
+    btn.disabled = true;
+    btn.textContent = 'Signing up...';
+
+    try {
+        const { error } = await supabase
+            .from('drop_subscribers')
+            .insert({ email });
+
+        if (error && error.code === '23505') {
+            msg.textContent = "You're already on the list!";
+            msg.className = 'notify-message notify-info';
+        } else if (error) {
+            throw error;
+        } else {
+            msg.textContent = "You're in! We'll notify you before the next drop.";
+            msg.className = 'notify-message notify-success';
+            e.target.reset();
+        }
+    } catch (err) {
+        console.error('Drop signup error:', err);
+        msg.textContent = 'Something went wrong — try again!';
+        msg.className = 'notify-message notify-error';
+    } finally {
+        msg.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Notify Me';
+    }
+}
+
+// Featured products preview on the home page
+async function loadFeaturedProducts() {
+    try {
+        const { data: liveDrops } = await supabase
+            .from('drops')
+            .select('*, drop_items(product_id)')
+            .eq('status', 'live');
+
+        if (!liveDrops || liveDrops.length === 0) return;
+
+        const productIds = liveDrops.flatMap(d => (d.drop_items || []).map(di => di.product_id));
+        if (productIds.length === 0) return;
+
+        const { data: products } = await supabase
+            .from('products')
+            .select('*, product_images(storage_path, display_order)')
+            .in('id', productIds)
+            .eq('available', true)
+            .order('created_at', { ascending: false })
+            .limit(4);
+
+        if (!products || products.length === 0) return;
+
+        const grid = document.getElementById('featuredGrid');
+        grid.innerHTML = '';
+
+        products.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'item-card';
+            card.dataset.itemId = item.id;
+            card.style.cursor = 'pointer';
+            card.onclick = function(e) {
+                if (e.target.closest('button')) return;
+                openProductDetail(item);
+            };
+            card.innerHTML = createItemCardHTML(item);
+            grid.appendChild(card);
+        });
+
+        document.getElementById('featuredSection').style.display = 'block';
+    } catch (err) {
+        console.error('Failed to load featured products:', err);
+    }
+}
+
 // Load inventory from Supabase (filtered by live drops only)
 async function loadShopInventory() {
     const itemsGrid = document.getElementById('availableItems');
@@ -1068,8 +1148,15 @@ function createItemCardHTML(item) {
     const hasImages = images.length > 0;
     const price = parseFloat(item.price) || 0;
 
+    const isNew = item.created_at &&
+        (Date.now() - new Date(item.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+    const badge = isNew
+        ? `<span class="item-badge badge-new">Just Dropped</span>`
+        : `<span class="item-badge badge-one-of-one">1 of 1</span>`;
+
     return `
         <div class="item-image" style="position: relative;">
+            ${badge}
             ${hasImages ?
                 `<div class="image-carousel" data-item-id="${item.id}">
                     ${images.map((img, idx) => `
@@ -1094,7 +1181,7 @@ function createItemCardHTML(item) {
             <p class="hide-mobile"><small>Size: ${item.size || 'N/A'} | Condition: ${item.condition || 'N/A'}</small></p>
             <p class="item-price">$${price.toFixed(2)}</p>
             <p class="item-size show-mobile-only"><small>${item.size || ''}</small></p>
-            <div class="item-actions hide-mobile" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+            <div class="item-actions hide-mobile" style="display: flex; gap: 0.5rem; margin-top: auto;">
                 <button class="btn-secondary" onclick="addToCart('${item.id}')" style="flex: 1;">Add to Cart</button>
                 <button class="btn-primary" onclick="buyNow('${item.id}')" style="flex: 1;">Buy Now</button>
             </div>

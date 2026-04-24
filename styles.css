@@ -642,6 +642,8 @@ main {
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     transition: transform 0.3s, box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
 }
 
 .item-card:hover {
@@ -666,6 +668,13 @@ main {
 
 .item-details {
     padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.item-actions {
+    margin-top: auto;
 }
 
 .item-details h3 {
@@ -1938,5 +1947,262 @@ footer {
 
     .event-banner-content h2 {
         font-size: 1.8rem;
+    }
+}
+
+/* ==============================
+   FEATURED PRODUCTS — HOME PAGE
+   ============================== */
+
+.featured-section {
+    background: #fff;
+    border-top: 1px solid #e8e6e1;
+}
+
+.featured-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+}
+
+.featured-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.featured-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem;
+    color: var(--maroon);
+    margin: 0;
+}
+
+.featured-see-all {
+    font-size: 0.95rem;
+    color: var(--maroon);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 2px solid var(--orange);
+    padding-bottom: 2px;
+    transition: color 0.2s;
+}
+
+.featured-see-all:hover {
+    color: var(--orange);
+}
+
+.featured-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+    .featured-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .featured-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .featured-inner {
+        padding: 2rem 1rem;
+    }
+
+    .featured-header h2 {
+        font-size: 1.4rem;
+    }
+}
+
+/* ==============================
+   FEATURED GRID — compact buttons
+   ============================== */
+
+.featured-grid .item-actions {
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+}
+
+.featured-grid .item-actions button {
+    width: 100%;
+    padding: 0.6rem 0.5rem;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+/* ==============================
+   ITEM BADGES (scarcity / recency)
+   ============================== */
+
+.item-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.badge-new {
+    background: var(--orange);
+    color: #fff;
+}
+
+.badge-one-of-one {
+    background: var(--maroon);
+    color: #fff;
+}
+
+/* ==============================
+   DROP COUNTDOWN + NOTIFY BAR
+   ============================== */
+
+.drop-notify-bar {
+    background: linear-gradient(135deg, var(--maroon) 0%, var(--dark-maroon) 100%);
+    color: var(--text-light);
+    border-top: 3px solid var(--orange);
+    border-bottom: 3px solid var(--orange);
+}
+
+.drop-notify-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem;
+    display: flex;
+    gap: 3rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.drop-notify-countdown {
+    flex: 1;
+}
+
+/* Countdown side */
+.drop-notify-countdown h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    color: var(--orange);
+    margin-bottom: 1.25rem;
+    text-align: center;
+}
+
+/* Reuse existing .countdown, .time-box, .time, .label styles — just reset the old standalone container */
+.drop-notify-bar .countdown-container {
+    background: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    max-width: none;
+}
+
+/* Email notify side */
+.drop-notify-form {
+    max-width: 480px;
+    width: 100%;
+}
+
+.drop-notify-countdown ~ .drop-notify-form {
+    border-left: 1px solid rgba(255,255,255,0.15);
+    padding-left: 3rem;
+}
+
+.drop-notify-form h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    color: var(--orange);
+    margin-bottom: 0.5rem;
+}
+
+.drop-notify-form p {
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+}
+
+.notify-input-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.notify-input-row input[type="email"] {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.notify-input-row input[type="email"]::placeholder {
+    color: rgba(255,255,255,0.5);
+}
+
+.notify-input-row input[type="email"]:focus {
+    border-color: var(--orange);
+}
+
+.btn-notify {
+    background: var(--orange);
+    color: white;
+    border: 2px solid var(--orange);
+    padding: 0.75rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 4px;
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-notify:hover {
+    background: transparent;
+    color: var(--orange);
+}
+
+.btn-notify:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.notify-message {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.notify-success { color: #7ddb8a; }
+.notify-info    { color: var(--orange); }
+.notify-error   { color: #ff8a80; }
+
+@media (max-width: 768px) {
+    .drop-notify-inner {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        padding: 2rem 1.25rem;
+    }
+
+    .drop-notify-form {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid rgba(255,255,255,0.15);
+        padding-top: 2rem;
     }
 }

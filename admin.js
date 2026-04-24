@@ -734,6 +734,7 @@ async function renderDropCategory(containerId, drops, status) {
                 <div class="drop-actions">
                     <button class="btn-success" onclick="viewDropItems('${drop.id}')">View Items</button>
                     <button class="btn-secondary" onclick="editDropSchedule('${drop.id}')">Edit Schedule</button>
+                    <button class="btn-notify" onclick="notifyDropSubscribers('${drop.id}', '${escapeHtml(drop.name)}', this)">Notify Subscribers</button>
                     <button class="btn-danger" onclick="cancelScheduledDrop('${drop.id}')">Cancel</button>
                 </div>`;
         }
@@ -745,6 +746,7 @@ async function renderDropCategory(containerId, drops, status) {
                 <p class="drop-meta">Activated: ${new Date(drop.activated_date).toLocaleString()}</p>
                 <div class="drop-actions">
                     <button class="btn-success" onclick="viewDropItems('${drop.id}')">View Items</button>
+                    <button class="btn-notify" onclick="notifyDropSubscribers('${drop.id}', '${escapeHtml(drop.name)}', this)">Notify Subscribers</button>
                     <button class="btn-secondary" onclick="completeDrop('${drop.id}')">Mark Complete</button>
                 </div>`;
         }
@@ -977,6 +979,34 @@ async function deleteDrop(dropId) {
     await supabase.from('drops').delete().eq('id', dropId);
     loadDropsManagement();
     loadInventory();
+}
+
+async function notifyDropSubscribers(dropId, dropName, btn) {
+    if (!confirm(`Send drop notification emails to all subscribers for "${dropName}"?\n\nThis will email everyone who signed up on the website.`)) return;
+
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        const { data, error } = await supabase.functions.invoke('send-drop-notification', {
+            body: { dropId }
+        });
+
+        if (error) throw error;
+
+        if (data.sent === 0) {
+            alert('No subscribers to notify yet.');
+        } else {
+            alert(`Done! ${data.sent} subscriber${data.sent !== 1 ? 's' : ''} notified.${data.failed > 0 ? `\n(${data.failed} failed — check Supabase logs)` : ''}`);
+        }
+    } catch (err) {
+        console.error('Notification error:', err);
+        alert('Failed to send notifications. Check the console for details.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
 }
 
 async function completeDrop(dropId) {

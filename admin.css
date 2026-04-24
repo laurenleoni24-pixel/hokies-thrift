@@ -314,6 +314,20 @@ body {
     color: white;
 }
 
+.btn-notify {
+    background: #7b4ea6;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.btn-notify:hover { background: #5e3a80; }
+.btn-notify:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .btn-danger {
     background: var(--danger);
     color: white;

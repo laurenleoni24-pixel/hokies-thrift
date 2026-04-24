@@ -159,6 +159,38 @@
                 <!-- Event Banner (auto-populated when active event exists) -->
                 <div id="eventBanner" class="event-banner" style="display:none;"></div>
 
+                <!-- Featured Products (shown when live inventory exists) -->
+                <div id="featuredSection" class="featured-section" style="display:none;">
+                    <div class="featured-inner">
+                        <div class="featured-header">
+                            <h2>Available Now</h2>
+                            <a href="#shop" onclick="event.preventDefault(); navigateToPage('shop');" class="featured-see-all">Shop All →</a>
+                        </div>
+                        <div id="featuredGrid" class="featured-grid"></div>
+                    </div>
+                </div>
+
+                <!-- Drop Countdown + Email Notify Bar -->
+                <div class="drop-notify-bar" id="dropNotifyBar">
+                    <div class="drop-notify-inner">
+                        <div class="drop-notify-countdown" id="dropCountdownCol" style="display:none;">
+                            <h2>Upcoming Drops</h2>
+                            <div id="upcomingDropsCountdowns"></div>
+                        </div>
+                        <div class="drop-notify-form">
+                            <h3>Be First to Know</h3>
+                            <p>Get notified before the next drop goes live.</p>
+                            <form id="dropNotifySignup" onsubmit="handleDropNotifySignup(event)">
+                                <div class="notify-input-row">
+                                    <input type="email" id="notifyEmail" placeholder="your@email.com" required>
+                                    <button type="submit" class="btn-notify">Notify Me</button>
+                                </div>
+                                <p id="notifyMessage" class="notify-message" style="display:none;"></p>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="hero-content">
                     <h1>HOKIES THRIFT</h1>
                     <p class="tagline">Your premier source for authentic Virginia Tech vintage gear</p>
@@ -194,12 +226,6 @@
                         <p>Preserving Virginia Tech history one vintage piece at a time. We connect Hokies with authentic, quality vintage VT gear while promoting sustainable fashion.</p>
                     </div>
 
-                    <div class="countdown-container">
-                        <h2>Upcoming Drops</h2>
-                        <div id="upcomingDropsCountdowns">
-                            <!-- Dynamically populated countdowns -->
-                        </div>
-                    </div>
 
                     <div class="hokies-events-section">
                         <h2>Upcoming Hokies Events</h2>
