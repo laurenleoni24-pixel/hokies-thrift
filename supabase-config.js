@@ -12,7 +12,7 @@ window.supabase = supabaseClient;
 function getOptimizedImageUrl(url, width = 600, quality = 75) {
     if (!url || !url.includes('/storage/v1/object/public/')) return url;
     return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-        + `?width=${width}&quality=${quality}&resize=cover`;
+        + `?width=${width}&quality=${quality}`;
 }
 
 // Image upload helper
