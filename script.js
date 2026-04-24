@@ -1251,14 +1251,12 @@ function createItemCardHTML(item) {
               `<span class="placeholder">${item.category || 'item'}</span>`}
         </div>
         <div class="item-details">
-            <h3 class="hide-mobile">${item.name}</h3>
-            <p class="item-description hide-mobile">${(item.description || '').substring(0, 100)}${(item.description || '').length > 100 ? '...' : ''}</p>
-            <p class="hide-mobile"><small>Size: ${item.size || 'N/A'} | Condition: ${item.condition || 'N/A'}</small></p>
+            <h3>${item.name}</h3>
+            ${item.size ? `<p class="item-size-tag">${item.size}</p>` : ''}
             <p class="item-price">$${price.toFixed(2)}</p>
-            <p class="item-size show-mobile-only"><small>${item.size || ''}</small></p>
-            <div class="item-actions hide-mobile" style="display: flex; gap: 0.5rem; margin-top: auto;">
-                <button class="btn-secondary" onclick="addToCart('${item.id}')" style="flex: 1;">Add to Cart</button>
-                <button class="btn-primary" onclick="buyNow('${item.id}')" style="flex: 1;">Buy Now</button>
+            <div class="item-actions hide-mobile" style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: auto;">
+                <button class="btn-secondary" onclick="addToCart('${item.id}')" style="width:100%;padding:0.55rem;">Add to Cart</button>
+                <button class="btn-primary" onclick="buyNow('${item.id}')" style="width:100%;padding:0.55rem;">Buy Now</button>
             </div>
         </div>
     `;
