@@ -975,6 +975,16 @@
         </div>
     </div>
 
+    <!-- DROP ITEMS VISIBILITY MODAL -->
+    <div id="dropItemsModal" class="modal">
+        <div class="modal-content" style="max-width:700px;">
+            <span class="close" onclick="closeDropItemsModal()">&times;</span>
+            <h2 id="dropItemsModalTitle">Drop Items</h2>
+            <p style="color:#666;margin-bottom:1.5rem;">Toggle visibility of individual items. Hidden items won't appear in the shop.</p>
+            <div id="dropItemsList" style="display:flex;flex-direction:column;gap:0.75rem;max-height:60vh;overflow-y:auto;"></div>
+        </div>
+    </div>
+
     <script src="admin.js"></script>
 </body>
 </html>

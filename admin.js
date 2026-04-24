@@ -1055,14 +1055,82 @@ async function viewDropItems(dropId) {
     const { data: drop } = await supabase.from('drops').select('name').eq('id', dropId).single();
     const { data: items } = await supabase
         .from('drop_items')
-        .select('product_id, products(name, price, available)')
+        .select('product_id, products(id, name, price, size, available, product_images(storage_path, display_order))')
         .eq('drop_id', dropId);
 
-    const itemsList = (items || []).map(di =>
-        `- ${di.products.name} ($${parseFloat(di.products.price).toFixed(2)}) - ${di.products.available ? 'Available' : 'Sold'}`
-    ).join('\n');
+    document.getElementById('dropItemsModalTitle').textContent = `Items in "${drop?.name}"`;
 
-    alert(`Items in "${drop.name}":\n\n${itemsList}`);
+    const list = document.getElementById('dropItemsList');
+    list.innerHTML = '';
+
+    (items || []).forEach(di => {
+        const p = di.products;
+        if (!p) return;
+
+        const images = (p.product_images || []).sort((a, b) => a.display_order - b.display_order);
+        const thumb = images[0]?.storage_path || null;
+        const price = parseFloat(p.price).toFixed(2);
+        const isVisible = p.available;
+
+        const row = document.createElement('div');
+        row.className = 'drop-item-row';
+        row.id = `drop-item-row-${p.id}`;
+        row.innerHTML = `
+            ${thumb
+                ? `<img src="${thumb}" class="drop-item-thumb" alt="${escapeHtml(p.name)}">`
+                : `<div class="drop-item-thumb drop-item-thumb--empty"></div>`}
+            <div class="drop-item-info">
+                <strong>${escapeHtml(p.name)}</strong>
+                <span>$${price}${p.size ? ' · ' + p.size : ''}</span>
+            </div>
+            <div class="drop-item-status ${isVisible ? 'status-visible' : 'status-hidden'}">
+                ${isVisible ? 'Visible' : 'Hidden'}
+            </div>
+            <button class="btn-${isVisible ? 'danger' : 'success'} drop-item-toggle"
+                    onclick="toggleItemVisibility('${p.id}', ${isVisible}, this)">
+                ${isVisible ? 'Hide' : 'Show'}
+            </button>`;
+        list.appendChild(row);
+    });
+
+    if (!items || items.length === 0) {
+        list.innerHTML = '<p style="color:#666;text-align:center;padding:2rem;">No items in this drop.</p>';
+    }
+
+    document.getElementById('dropItemsModal').classList.add('active');
+}
+
+function closeDropItemsModal() {
+    document.getElementById('dropItemsModal').classList.remove('active');
+}
+
+async function toggleItemVisibility(productId, currentlyVisible, btn) {
+    const newValue = !currentlyVisible;
+    btn.disabled = true;
+
+    const { error } = await supabase
+        .from('products')
+        .update({ available: newValue })
+        .eq('id', productId);
+
+    if (error) {
+        alert('Failed to update listing.');
+        btn.disabled = false;
+        return;
+    }
+
+    // Update the row in place without closing the modal
+    const row = document.getElementById(`drop-item-row-${productId}`);
+    const statusEl = row.querySelector('.drop-item-status');
+    statusEl.textContent = newValue ? 'Visible' : 'Hidden';
+    statusEl.className = `drop-item-status ${newValue ? 'status-visible' : 'status-hidden'}`;
+    btn.textContent = newValue ? 'Hide' : 'Show';
+    btn.className = `btn-${newValue ? 'danger' : 'success'} drop-item-toggle`;
+    btn.onclick = () => toggleItemVisibility(productId, newValue, btn);
+    btn.disabled = false;
+
+    loadDropsManagement();
+    loadDashboardData();
 }
 
 async function editDropSchedule(dropId) {
