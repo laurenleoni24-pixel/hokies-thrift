@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initNavigation();
     initCountdown();
     initShopTabs();
+    initShopSearch();
     initNavigationCards();
     initSellerForm();
     initMobileMenu();
@@ -1021,6 +1022,107 @@ async function loadFeaturedProducts() {
     }
 }
 
+// Search + filter state
+let allAvailableProducts = [];
+let allAvailableDrops = [];
+let activeSearchQuery = '';
+let activeSizeFilter = '';
+
+function initShopSearch() {
+    const input = document.getElementById('shopSearchInput');
+    const clearBtn = document.getElementById('shopSearchClear');
+    if (!input) return;
+
+    input.addEventListener('input', function() {
+        activeSearchQuery = this.value.trim().toLowerCase();
+        clearBtn.style.display = activeSearchQuery ? 'block' : 'none';
+        renderFilteredItems();
+    });
+
+    document.querySelectorAll('.size-pill').forEach(pill => {
+        pill.addEventListener('click', function() {
+            document.querySelectorAll('.size-pill').forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+            activeSizeFilter = this.dataset.size;
+            renderFilteredItems();
+        });
+    });
+}
+
+function clearShopSearch() {
+    activeSearchQuery = '';
+    activeSizeFilter = '';
+    document.getElementById('shopSearchInput').value = '';
+    document.getElementById('shopSearchClear').style.display = 'none';
+    document.querySelectorAll('.size-pill').forEach(p => p.classList.remove('active'));
+    document.querySelector('.size-pill[data-size=""]').classList.add('active');
+    renderFilteredItems();
+}
+
+function renderFilteredItems() {
+    const itemsGrid = document.getElementById('availableItems');
+    if (!itemsGrid || allAvailableProducts.length === 0) return;
+
+    const query = activeSearchQuery;
+    const size = activeSizeFilter.toLowerCase();
+
+    const filtered = allAvailableProducts.filter(item => {
+        const matchesSize = !size || (item.size || '').toLowerCase() === size;
+        const matchesQuery = !query || [item.name, item.description, item.category, item.size, item.condition]
+            .some(field => (field || '').toLowerCase().includes(query));
+        return matchesSize && matchesQuery;
+    });
+
+    itemsGrid.innerHTML = '';
+
+    if (filtered.length === 0) {
+        itemsGrid.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:3rem;">
+                <h3>No items match your search</h3>
+                <p>Try a different size or keyword.</p>
+                <button class="btn-secondary" onclick="clearShopSearch()" style="margin-top:1rem;">Clear Search</button>
+            </div>`;
+        return;
+    }
+
+    // Group filtered items by drop
+    const groupedByDrop = {};
+    filtered.forEach(product => {
+        const drop = allAvailableDrops.find(d =>
+            (d.drop_items || []).some(di => di.product_id === product.id)
+        );
+        if (drop) {
+            if (!groupedByDrop[drop.id]) groupedByDrop[drop.id] = { drop, items: [] };
+            groupedByDrop[drop.id].items.push(product);
+        }
+    });
+
+    Object.values(groupedByDrop).forEach(({ drop, items }) => {
+        const dropHeader = document.createElement('div');
+        dropHeader.className = 'drop-header';
+        dropHeader.style.gridColumn = '1 / -1';
+        dropHeader.innerHTML = `
+            <h2 class="drop-name">${drop.name}</h2>
+            ${drop.description ? `<p class="drop-description">${drop.description}</p>` : ''}
+            <span class="live-badge">🔴 LIVE NOW</span>
+        `;
+        itemsGrid.appendChild(dropHeader);
+
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'item-card';
+            card.dataset.itemId = item.id;
+            card.style.cursor = 'pointer';
+            card.onclick = function(e) {
+                if (e.target.closest('button')) return;
+                openProductDetail(item);
+            };
+            card.innerHTML = createItemCardHTML(item);
+            itemsGrid.appendChild(card);
+        });
+    });
+}
+
 // Load inventory from Supabase (filtered by live drops only)
 async function loadShopInventory() {
     const itemsGrid = document.getElementById('availableItems');
@@ -1082,48 +1184,11 @@ async function loadShopInventory() {
             return;
         }
 
-        // Group items by drop for better display
-        const groupedByDrop = {};
-        products.forEach(product => {
-            // Find which drop this product belongs to
-            const drop = liveDrops.find(d =>
-                (d.drop_items || []).some(di => di.product_id === product.id)
-            );
-            if (drop) {
-                if (!groupedByDrop[drop.id]) {
-                    groupedByDrop[drop.id] = { drop, items: [] };
-                }
-                groupedByDrop[drop.id].items.push(product);
-            }
-        });
+        // Cache for search filtering
+        allAvailableProducts = products;
+        allAvailableDrops = liveDrops;
 
-        itemsGrid.innerHTML = '';
-
-        Object.values(groupedByDrop).forEach(({ drop, items }) => {
-            const dropHeader = document.createElement('div');
-            dropHeader.className = 'drop-header';
-            dropHeader.style.gridColumn = '1 / -1';
-            dropHeader.innerHTML = `
-                <h2 class="drop-name">${drop.name}</h2>
-                ${drop.description ? `<p class="drop-description">${drop.description}</p>` : ''}
-                <span class="live-badge">🔴 LIVE NOW</span>
-            `;
-            itemsGrid.appendChild(dropHeader);
-
-            items.forEach(item => {
-                const itemCard = document.createElement('div');
-                itemCard.className = 'item-card';
-                itemCard.dataset.itemId = item.id;
-                itemCard.onclick = function(e) {
-                    if (e.target.closest('button')) return;
-                    openProductDetail(item);
-                };
-                itemCard.style.cursor = 'pointer';
-
-                itemCard.innerHTML = createItemCardHTML(item);
-                itemsGrid.appendChild(itemCard);
-            });
-        });
+        renderFilteredItems();
 
         // Also update cachedDrops for countdown
         cachedDrops = liveDrops;
