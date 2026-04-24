@@ -740,13 +740,16 @@ async function renderDropCategory(containerId, drops, status) {
         }
 
         if (status === 'live') {
+            const headerOn = drop.show_header !== false;
             html += `
                 <p class="drop-live-badge">🔴 LIVE NOW</p>
                 <p class="drop-stats">${availableCount}/${itemIds.length} items remaining</p>
                 <p class="drop-meta">Activated: ${new Date(drop.activated_date).toLocaleString()}</p>
+                <p class="drop-meta">Drop banner: <strong>${headerOn ? 'Visible' : 'Hidden'}</strong></p>
                 <div class="drop-actions">
                     <button class="btn-success" onclick="viewDropItems('${drop.id}')">View Items</button>
                     <button class="btn-notify" onclick="notifyDropSubscribers('${drop.id}', '${escapeHtml(drop.name)}', this)">Notify Subscribers</button>
+                    <button class="btn-secondary" onclick="toggleDropHeader('${drop.id}', ${headerOn})">${headerOn ? 'Hide Banner' : 'Show Banner'}</button>
                     <button class="btn-secondary" onclick="completeDrop('${drop.id}')">Mark Complete</button>
                 </div>`;
         }
@@ -979,6 +982,21 @@ async function deleteDrop(dropId) {
     await supabase.from('drops').delete().eq('id', dropId);
     loadDropsManagement();
     loadInventory();
+}
+
+async function toggleDropHeader(dropId, currentlyVisible) {
+    const newValue = !currentlyVisible;
+    const { error } = await supabase
+        .from('drops')
+        .update({ show_header: newValue })
+        .eq('id', dropId);
+
+    if (error) {
+        alert('Failed to update banner visibility.');
+        console.error(error);
+        return;
+    }
+    loadDropsManagement();
 }
 
 async function notifyDropSubscribers(dropId, dropName, btn) {

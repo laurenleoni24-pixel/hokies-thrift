@@ -1098,15 +1098,17 @@ function renderFilteredItems() {
     });
 
     Object.values(groupedByDrop).forEach(({ drop, items }) => {
-        const dropHeader = document.createElement('div');
-        dropHeader.className = 'drop-header';
-        dropHeader.style.gridColumn = '1 / -1';
-        dropHeader.innerHTML = `
-            <h2 class="drop-name">${drop.name}</h2>
-            ${drop.description ? `<p class="drop-description">${drop.description}</p>` : ''}
-            <span class="live-badge">🔴 LIVE NOW</span>
-        `;
-        itemsGrid.appendChild(dropHeader);
+        if (drop.show_header !== false) {
+            const dropHeader = document.createElement('div');
+            dropHeader.className = 'drop-header';
+            dropHeader.style.gridColumn = '1 / -1';
+            dropHeader.innerHTML = `
+                <h2 class="drop-name">${drop.name}</h2>
+                ${drop.description ? `<p class="drop-description">${drop.description}</p>` : ''}
+                <span class="live-badge">🔴 LIVE NOW</span>
+            `;
+            itemsGrid.appendChild(dropHeader);
+        }
 
         items.forEach(item => {
             const card = document.createElement('div');
