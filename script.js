@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadEventBanner();
     loadDropBanner();
     loadFeaturedProducts();
+    initAuth();
 });
 
 // Navigate to a page by ID and update the URL
@@ -2915,4 +2916,173 @@ async function addEventItemToCart(productId) {
 async function buyNowEvent(productId) {
     await addEventItemToCart(productId);
     goToCheckout();
+}
+
+// ==========================================
+// USER AUTHENTICATION
+// ==========================================
+
+let currentUser = null;
+
+async function initAuth() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        currentUser = session.user;
+        updateNavAuth(currentUser);
+    }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN') {
+            currentUser = session.user;
+            updateNavAuth(currentUser);
+        } else if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            updateNavAuth(null);
+        }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('accountDropdown');
+        const btn = document.getElementById('accountNavBtn');
+        if (dropdown && !dropdown.contains(e.target) && btn && !btn.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function updateNavAuth(user) {
+    const iconEl = document.getElementById('accountNavIcon');
+    const dropdownName = document.getElementById('accountDropdownName');
+    if (!iconEl) return;
+
+    if (user) {
+        const name = user.user_metadata?.full_name || user.email || '';
+        const initial = name.charAt(0).toUpperCase();
+        iconEl.innerHTML = `<span class="account-initial">${initial}</span>`;
+        if (dropdownName) {
+            dropdownName.textContent = user.user_metadata?.full_name || user.email;
+        }
+    } else {
+        iconEl.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+        </svg>`;
+    }
+}
+
+function handleAccountClick() {
+    if (currentUser) {
+        const dropdown = document.getElementById('accountDropdown');
+        const btn = document.getElementById('accountNavBtn');
+        const rect = btn.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 8) + 'px';
+        dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+        dropdown.style.left = 'auto';
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    } else {
+        openAuthModal();
+    }
+}
+
+function openAuthModal() {
+    document.getElementById('authModal').style.display = 'flex';
+    switchAuthTab('signin');
+}
+
+function closeAuthModal() {
+    document.getElementById('authModal').style.display = 'none';
+    document.getElementById('signinError').textContent = '';
+    document.getElementById('signupError').textContent = '';
+    const successEl = document.getElementById('signupSuccess');
+    successEl.textContent = '';
+    successEl.style.display = 'none';
+    document.getElementById('signinForm').reset();
+    document.getElementById('signupForm').reset();
+}
+
+function handleAuthOverlayClick(e) {
+    if (e.target === document.getElementById('authModal')) closeAuthModal();
+}
+
+function switchAuthTab(tab) {
+    const signinForm = document.getElementById('signinForm');
+    const signupForm = document.getElementById('signupForm');
+    document.getElementById('signinTab').classList.toggle('active', tab === 'signin');
+    document.getElementById('signupTab').classList.toggle('active', tab === 'signup');
+    signinForm.style.display = tab === 'signin' ? 'flex' : 'none';
+    signupForm.style.display = tab === 'signup' ? 'flex' : 'none';
+}
+
+async function handleSignIn(e) {
+    e.preventDefault();
+    const email = document.getElementById('signinEmail').value;
+    const password = document.getElementById('signinPassword').value;
+    const errorEl = document.getElementById('signinError');
+    const btn = document.getElementById('signinBtn');
+
+    errorEl.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Logging in...';
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    btn.disabled = false;
+    btn.textContent = 'Log In';
+
+    if (error) {
+        errorEl.textContent = error.message;
+        return;
+    }
+
+    closeAuthModal();
+}
+
+async function handleSignUp(e) {
+    e.preventDefault();
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value;
+    const password = document.getElementById('signupPassword').value;
+    const confirm = document.getElementById('signupConfirm').value;
+    const errorEl = document.getElementById('signupError');
+    const successEl = document.getElementById('signupSuccess');
+    const btn = document.getElementById('signupBtn');
+
+    errorEl.textContent = '';
+    successEl.style.display = 'none';
+
+    if (password !== confirm) {
+        errorEl.textContent = 'Passwords do not match.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Creating account...';
+
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } }
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Create Account';
+
+    if (error) {
+        errorEl.textContent = error.message;
+        return;
+    }
+
+    if (data.session) {
+        // Email confirmation disabled — user is immediately logged in
+        closeAuthModal();
+    } else {
+        successEl.textContent = 'Almost there! Check your email to confirm your account, then log in.';
+        successEl.style.display = 'block';
+    }
+}
+
+async function signOutUser() {
+    document.getElementById('accountDropdown').style.display = 'none';
+    await supabase.auth.signOut();
 }

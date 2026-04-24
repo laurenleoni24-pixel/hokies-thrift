@@ -105,6 +105,23 @@
                 <li><a href="#shop">Shop</a></li>
                 <li><a href="#sell">Sell</a></li>
                 <li><a href="#browse">Browse</a></li>
+                <li style="position: relative;">
+                    <button onclick="handleAccountClick()" class="account-btn" id="accountNavBtn" title="My Account">
+                        <span id="accountNavIcon">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                        </span>
+                    </button>
+                    <div id="accountDropdown" class="account-dropdown" style="display:none;">
+                        <div class="account-dropdown-header">
+                            <div class="account-dropdown-greeting">Signed in as</div>
+                            <div class="account-dropdown-name" id="accountDropdownName"></div>
+                        </div>
+                        <button class="account-dropdown-item account-dropdown-signout" onclick="signOutUser()">Sign Out</button>
+                    </div>
+                </li>
                 <li>
                     <button onclick="viewCart()" class="cart-btn" style="background: none; border: none; cursor: pointer; position: relative; padding: 0.5rem 1rem;">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -473,6 +490,35 @@
             <p>&copy; 2025 Hokies Thrift. All rights reserved.</p>
         </div>
     </footer>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="auth-modal-overlay" style="display:none;" onclick="handleAuthOverlayClick(event)">
+        <div class="auth-modal">
+            <button class="auth-modal-close" onclick="closeAuthModal()">&times;</button>
+            <div class="auth-modal-logo">
+                <img src="Brand_assets/4288D638-3270-49DB-8A80-41146977937C.PNG" alt="Hokies Thrift">
+            </div>
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="signinTab" onclick="switchAuthTab('signin')">Log In</button>
+                <button class="auth-tab" id="signupTab" onclick="switchAuthTab('signup')">Sign Up</button>
+            </div>
+            <form id="signinForm" class="auth-form" onsubmit="handleSignIn(event)">
+                <div class="auth-error" id="signinError"></div>
+                <input type="email" id="signinEmail" placeholder="Email" required autocomplete="email">
+                <input type="password" id="signinPassword" placeholder="Password" required autocomplete="current-password">
+                <button type="submit" class="btn-primary auth-submit" id="signinBtn">Log In</button>
+            </form>
+            <form id="signupForm" class="auth-form" style="display:none;" onsubmit="handleSignUp(event)">
+                <div class="auth-error" id="signupError"></div>
+                <div class="auth-success" id="signupSuccess" style="display:none;"></div>
+                <input type="text" id="signupName" placeholder="Full Name" required autocomplete="name">
+                <input type="email" id="signupEmail" placeholder="Email" required autocomplete="email">
+                <input type="password" id="signupPassword" placeholder="Password (min 6 characters)" required minlength="6" autocomplete="new-password">
+                <input type="password" id="signupConfirm" placeholder="Confirm Password" required autocomplete="new-password">
+                <button type="submit" class="btn-primary auth-submit" id="signupBtn">Create Account</button>
+            </form>
+        </div>
+    </div>
 
     <script src="script.js"></script>
     <script src="install-prompt.js"></script>

@@ -2353,3 +2353,205 @@ footer {
     background-size: 600px 100%;
     animation: shimmer 1.4s infinite linear;
 }
+
+/* ==========================================
+   USER AUTH — Account Button + Modal
+   ========================================== */
+
+.account-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.account-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--orange);
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: inherit;
+}
+
+/* Dropdown */
+.account-dropdown {
+    position: fixed;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    min-width: 200px;
+    z-index: 9999;
+    overflow: hidden;
+    border: 1px solid #ece9e4;
+}
+
+.account-dropdown-header {
+    padding: 0.9rem 1rem 0.75rem;
+    border-bottom: 1px solid #ece9e4;
+}
+
+.account-dropdown-greeting {
+    font-size: 0.72rem;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.account-dropdown-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-top: 0.15rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.account-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: #1a1a1a;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.account-dropdown-item:hover {
+    background: #f5f0eb;
+}
+
+.account-dropdown-signout {
+    color: #c0392b;
+}
+
+/* Auth Modal */
+.auth-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.auth-modal {
+    background: white;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 380px;
+    padding: 2rem;
+    position: relative;
+}
+
+.auth-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1.1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #aaa;
+    line-height: 1;
+    padding: 0;
+}
+
+.auth-modal-close:hover { color: #1a1a1a; }
+
+.auth-modal-logo {
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+.auth-modal-logo img {
+    height: 48px;
+    width: auto;
+    object-fit: contain;
+}
+
+.auth-tabs {
+    display: flex;
+    border-bottom: 2px solid #ece9e4;
+    margin-bottom: 1.25rem;
+}
+
+.auth-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    padding: 0.65rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #aaa;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.auth-tab.active {
+    color: var(--maroon);
+    border-bottom-color: var(--maroon);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.auth-form input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d8d3cd;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    color: #1a1a1a;
+}
+
+.auth-form input:focus {
+    outline: none;
+    border-color: var(--maroon);
+}
+
+.auth-submit {
+    width: 100%;
+    padding: 0.85rem;
+    margin-top: 0.1rem;
+    font-size: 0.95rem;
+}
+
+.auth-error {
+    color: #c0392b;
+    font-size: 0.85rem;
+    min-height: 0;
+}
+
+.auth-success {
+    color: #2a7a2a;
+    font-size: 0.85rem;
+    background: #f0faf0;
+    padding: 0.6rem 0.8rem;
+    border-radius: 5px;
+    border: 1px solid #c3e6cb;
+}
