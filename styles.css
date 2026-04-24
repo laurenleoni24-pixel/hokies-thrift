@@ -2194,15 +2194,28 @@ footer {
 
 @media (max-width: 768px) {
     .drop-notify-inner {
-        grid-template-columns: 1fr;
+        flex-direction: column;
         gap: 2rem;
         padding: 2rem 1.25rem;
     }
 
     .drop-notify-form {
+        width: 100%;
+        max-width: 100%;
         border-left: none;
         padding-left: 0;
         border-top: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .notify-input-row {
+        flex-direction: column;
+    }
+
+    .notify-input-row input[type="email"],
+    .btn-notify {
+        width: 100%;
+        box-sizing: border-box;
+    }
         padding-top: 2rem;
     }
 }
