@@ -118,6 +118,11 @@ async function handleRequest(request) {
       }
     }
 
+    // Route: GET /feed.tsv — Pinterest product catalog feed
+    if (url.pathname === '/feed.tsv' && request.method === 'GET') {
+      return await handlePinterestFeed();
+    }
+
     // Route: GET /health
     if (url.pathname === '/health') {
       return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() }, 200, corsHeaders);
@@ -212,6 +217,80 @@ async function fetchEbayListings(token, seller, limit) {
       shippingOptions: item.shippingOptions || []
     })) : []
   };
+}
+
+/**
+ * Pinterest product catalog feed — returns live products as TSV
+ * Pinterest fetches this URL daily to sync your shop inventory.
+ * Required env vars: SUPABASE_URL, SUPABASE_ANON_KEY
+ */
+async function handlePinterestFeed() {
+  if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_ANON_KEY === 'undefined') {
+    return new Response('Supabase credentials not configured', { status: 500 });
+  }
+
+  // Fetch all live products with their images from Supabase
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/products?select=id,name,description,price,category,size,product_images(storage_path,display_order)&available=eq.true&order=created_at.desc`,
+    {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      }
+    }
+  );
+
+  if (!res.ok) {
+    return new Response(`Failed to fetch products: ${res.status}`, { status: 500 });
+  }
+
+  const products = await res.json();
+
+  // Build TSV — Pinterest required columns
+  const header = ['id', 'title', 'description', 'link', 'image_link', 'price', 'availability', 'condition', 'google_product_category'].join('\t');
+  const rows = [header];
+
+  for (const p of products) {
+    const images = (p.product_images || []).sort((a, b) => a.display_order - b.display_order);
+    const imageUrl = images.length > 0 ? images[0].storage_path : '';
+
+    // Skip products with no image — Pinterest will reject them
+    if (!imageUrl) continue;
+
+    const price = (parseFloat(p.price) || 0).toFixed(2);
+    const title = sanitizeTsvField(p.name || '', 150);
+    const description = sanitizeTsvField(p.description || p.name || '', 500);
+    const link = `https://hokiesthrift.com/shop#${p.id}`;
+    const category = p.category
+      ? `Apparel & Accessories > Clothing > ${p.category}`
+      : 'Apparel & Accessories > Clothing';
+
+    rows.push([
+      p.id,
+      title,
+      description,
+      link,
+      imageUrl,
+      `${price} USD`,
+      'in stock',
+      'used',
+      category
+    ].join('\t'));
+  }
+
+  return new Response(rows.join('\n'), {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/tab-separated-values; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, max-age=3600',
+    }
+  });
+}
+
+// Strip tabs/newlines from a field so TSV stays valid
+function sanitizeTsvField(str, maxLen) {
+  return str.replace(/[\t\n\r]/g, ' ').trim().substring(0, maxLen);
 }
 
 /**
